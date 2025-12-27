@@ -1,0 +1,11 @@
+# Example config file
+
+# size in minutes
+# smaller blocks = more computations
+# larger blocks = less granularity in schedule
+block_size: 15 
+
+# number of time blocks starting from current time
+# (or from a specified date?)
+# 672 = 1 week of time blocks
+num_blocks: 672 
