@@ -9,3 +9,12 @@ block_size: 15
 # (or from a specified date?)
 # 672 = 1 week of time blocks
 num_blocks: 672 
+
+# json file of events to read in
+event_file: tests/events.json
+
+# optimization model to use
+scheduling_model: makespan
+# possible values:
+# makespan
+# 
