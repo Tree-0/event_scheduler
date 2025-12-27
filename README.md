@@ -1,4 +1,13 @@
+# Event Scheduler
+- [ ] Input various lists of events and constraints for those events
+- [ ] Choose a CP-SAT model to optimize the placement of your events in a window
+- [ ] Send the optimally scheduled events to Google Calendar via the API
+
+
 scheduler/
+  config/
+    example_config.yaml
+
   data_models/              # dataclasses: Event, Window, Request, Result
     event.py
     window.py
