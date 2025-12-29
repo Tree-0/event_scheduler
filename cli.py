@@ -2,47 +2,41 @@ import argparse
 import yaml
 import pathlib
 from opt_models import scheduler_factory
+from config.config import Config
+
+from ortools.sat.python import cp_model # want to abstract this
 
 #
 # Read config file
 #
 
 print("(optional) enter config file: ")
-config = input().strip()
+config_file = input().strip()
 
-# defaults
-block_size = 15
-num_blocks = 672
-event_file = ''
-scheduling_model = ''
+if not config_file or not pathlib.Path(config_file).exists():
+    print("Unable to locate config file... using defaults.")
 
-if not config:
-    print("loading defaults.")
-elif not pathlib.Path(config).exists():
-    print("unrecognized config file. Using defaults instead.")
-else:
-    with open(config, 'r') as config_file:
-        config_data = yaml.safe_load(config_file)
-        print(config_data)
-    
-    block_size = config_data['block_size']
-    num_blocks = config_data['num_blocks']
-    event_file = config_data['event_file']
-    scheduling_model = config_data['scheduling_model']
+config_obj = Config()
+config_obj.load_config(config_file)
+
+print(config_obj)
 
 #
 # read events from file
 #
 
 events = []
+
+event_file = config_obj.event_file
 if event_file:
     print(f"reading {event_file}...")
     if not pathlib.Path(event_file).exists():
         print(f"unrecognized events file. Enter manually in the next step.")
     else:
         from adapters.json_io import read_event_file
-        events = read_event_file(event_file)
+        events = read_event_file(event_file, config_obj.json_skip_invalid_events)
 
+print()
 print("current events:")
 for ev in events:
     print(ev)
@@ -65,15 +59,29 @@ while manual_event_input:
 # configure model and solve
 #
 
+scheduling_model = config_obj.scheduling_model
 if not scheduling_model:
     print("enter scheduling model type: ")
     # TODO: global list of scheduling model names
     scheduling_model = input().strip()
 
 model_factory = scheduler_factory.SchedulerFactory()
-model_factory.create_scheduler_model(
+scheduler = model_factory.create_scheduler_model(
     scheduling_model, 
     events, 
-    block_size, 
-    num_blocks
+    config_obj
 )
+
+scheduler.build_model()
+status = scheduler.solve()
+
+# TODO: expand checks for solver status, provide more info, visual display of events
+# TODO: abstract out cp_model from cli.py
+# print events by start time
+if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
+    scheduler.events.sort(key=lambda e: e.start_time)
+    for e in scheduler.events:
+        print(f"{e.name} - {e.id}")
+        print(f"    start: {e.start_time} | end: {e.end_time} | duration: {e.duration} minutes")
+else:
+    print("NO SCHEDULING SOLUTION FOUND")

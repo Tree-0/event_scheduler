@@ -1,6 +1,6 @@
 # Event Scheduler
-- [ ] Input various lists of events and constraints for those events
-- [ ] Choose a CP-SAT model to optimize the placement of your events in a window
+- Input various lists of events and constraints for those events
+- Choose a CP-SAT model to optimize the placement of your events in a window
 - [ ] Send the optimally scheduled events to Google Calendar via the API
 
 

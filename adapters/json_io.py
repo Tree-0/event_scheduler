@@ -4,12 +4,13 @@
 # - event lists
 # - solver outputs
 #
+
 import json 
 from typing import List
 from data_models import event, window
 
 # read json file containing a list of events
-def read_event_file(jfile: str) -> List[event.Event]:
+def read_event_file(jfile: str, skip_invalid: bool=True) -> List[event.Event]:
     with open(jfile, 'r') as file:
         json_data = json.load(file)
         events = []
@@ -20,13 +21,27 @@ def read_event_file(jfile: str) -> List[event.Event]:
                 start = event_json["window_start"],
                 end = event_json["window_end"]
             )
-            new_event = event.Event(
-                name = event_json["name"],
-                id = event_json["id"],
-                duration = event_json["duration"],
-                schedulable_window = event_window
-            )
-            # TODO: check for start_time and end_time keys?
+
+            try:
+                new_event = event.Event(
+                    name = event_json["name"],
+                    id = event_json["id"],
+                    duration = event_json["duration"],
+                    schedulable_window = event_window
+                )
+            except: # if we have an invalid event
+                if skip_invalid:
+                    # TODO: replace with logger instead?
+                    print(f"WARNING: Invalid event while reading event {event_json['id']}, skipping event")
+                    continue
+                else:
+                    raise
+            
+            # start and end time keys will be present in a results file
+            if "start_time" in event_json:
+                new_event.start_time = event_json["start_time"]
+            if "end_time" in event_json:
+                new_event.end_time = event_json["end_time"]
 
             events.append(new_event)
         

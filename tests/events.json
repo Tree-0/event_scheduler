@@ -23,7 +23,7 @@
     {
         "name" : "laundry",
         "id" : "4",
-        "duration" : 4,
+        "duration" : 60,
         "window_start" : 360,
         "window_end" : 720
     }

@@ -1,0 +1,16 @@
+[
+    {
+        "name" : "invalid_event_window",
+        "id" : "1",
+        "duration" : 10,
+        "window_start" : 50,
+        "window_end" : 30
+    },
+    {
+        "name" : "invalid_event_duration",
+        "id" : "2",
+        "duration" : 50,
+        "window_start" : 30,
+        "window_end" : 50
+    }
+]

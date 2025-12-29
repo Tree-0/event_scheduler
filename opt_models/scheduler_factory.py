@@ -3,8 +3,9 @@
 from data_models import event
 from typing import List
 
-from opt_models.base_scheduler import SchedulerModel
-from makespan import MakespanScheduler
+from config.config import Config
+from opt_models.base_scheduler import BaseScheduler
+from opt_models.makespan import MakespanScheduler
 # TODO: other models and their imports
 
 class SchedulerFactory:
@@ -14,13 +15,12 @@ class SchedulerFactory:
     def create_scheduler_model(
         model_name: str, 
         events: List[event.Event], 
-        block_size: int, 
-        num_blocks: int
-    ) -> SchedulerModel:
+        config_obj: Config
+    ) -> BaseScheduler:
         
         match model_name.lower().strip():
 
             case "makespan": 
-                return MakespanScheduler(events, block_size, num_blocks)
+                return MakespanScheduler(events, config_obj)
 
         raise ValueError("Unknown model name when trying to create Scheduler")    

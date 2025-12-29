@@ -10,6 +10,9 @@ block_size: 15
 # 672 = 1 week of time blocks
 num_blocks: 672 
 
+# TODO: 
+# start dates/times to associate with block 0 in the window 
+
 # json file of events to read in
 event_file: tests/events.json
 
@@ -18,3 +21,8 @@ scheduling_model: makespan
 # possible values:
 # makespan
 # 
+
+# reading/writing json config
+json_parsing:
+  # Log when invalid events occur in json and skip them instead of erroring
+  read_skip_invalid_events: true
