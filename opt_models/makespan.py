@@ -3,9 +3,9 @@
 # (Get all events done as fast as possible)
 #
 
-import math
 from ortools.sat.python import cp_model
 from data_models import event
+from data_models import utils
 from typing import List, Dict
 from opt_models.base_scheduler import BaseScheduler
 from config.config import Config
@@ -33,9 +33,9 @@ class MakespanScheduler(BaseScheduler):
             # if event is infeasible, except
 
             # convert event times to time blocks (lose granularity)
-            window_start_block = e.schedulable_window.start // self.block_size
-            window_end_block = e.schedulable_window.end // self.block_size
-            duration_blocks =  math.ceil(e.duration  / self.block_size)
+            window_start_block = utils.to_blocks(e.schedulable_window.start, self.block_size)
+            window_end_block = utils.to_blocks(e.schedulable_window.end, self.block_size)
+            duration_blocks = utils.duration_to_blocks(e.duration, self.block_size)
 
             if window_end_block - window_start_block < duration_blocks:
                 raise ValueError(f"event's window is smaller than its duration:\n {e}")
@@ -75,10 +75,7 @@ class MakespanScheduler(BaseScheduler):
         # last_complete cannot be smaller than the completion time of the last task
         self.__model.AddMaxEquality(last_complete, self.end_vars.values())
 
-        # 
-        # objective
-        # 
-
+        # Objective
         # solve for earliest completion time of last task
         self.__model.Minimize(last_complete)
 
