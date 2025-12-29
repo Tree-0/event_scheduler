@@ -4,6 +4,7 @@ import pathlib
 from opt_models import scheduler_factory
 from config.config import Config
 from adapters.event_timeline import EventTimeline
+from adapters.json_io import read_event_file, write_event_file
 
 from ortools.sat.python import cp_model # want to abstract this
 
@@ -34,7 +35,6 @@ if event_file:
     if not pathlib.Path(event_file).exists():
         print(f"unrecognized events file. Enter manually in the next step.")
     else:
-        from adapters.json_io import read_event_file
         events = read_event_file(event_file, config_obj.json_skip_invalid_events)
 
 print()
@@ -88,5 +88,8 @@ if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
     print(f"\n{'=' * 50}\nTIMELINE: ")
     EventTimeline.display(scheduler.events, config_obj)
     print()
+
+    # serialize to json
+    write_event_file(f"tests/outputs/{event_file.split('/')[-1]}", scheduler.events)
 else:
     print("NO SCHEDULING SOLUTION FOUND")

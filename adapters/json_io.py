@@ -49,4 +49,20 @@ def read_event_file(jfile: str, skip_invalid: bool=True) -> List[event.Event]:
 
 # write a list of json events back 
 def write_event_file(jfile: str, events: List[event.Event]):
-    pass
+    payload = []
+    for ev in events:
+        ev_json = {
+            "name": ev.name,
+            "id": ev.id,
+            "duration": ev.duration,
+            "window_start": ev.schedulable_window.start,
+            "window_end": ev.schedulable_window.end,
+        }
+        if getattr(ev, "start_time", None) is not None:
+            ev_json["start_time"] = ev.start_time
+        if getattr(ev, "end_time", None) is not None:
+            ev_json["end_time"] = ev.end_time
+        payload.append(ev_json)
+
+    with open(jfile, "x") as file:
+        json.dump(payload, file, indent=2)
