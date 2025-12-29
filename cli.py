@@ -1,10 +1,12 @@
 import argparse
 import yaml
 import pathlib
+import uuid
 from opt_models import scheduler_factory
 from config.config import Config
 from adapters.event_timeline import EventTimeline
 from adapters.json_io import read_event_file, write_event_file
+from data_models import event, window
 
 from ortools.sat.python import cp_model # want to abstract this
 
@@ -51,10 +53,49 @@ print("Would you like to manually input events?")
 manual_event_input = input('(y/n): ') in ['y', 'Y']
 print()
 
+if manual_event_input:
+    minute_slots = config_obj.num_blocks * config_obj.block_size
+    print(f"Enter events in the following format (in minutes on the interval [0,{minute_slots}]): ")
+    print("[name] [earliest start] [latest completion] [duration]")
+
 while manual_event_input:
-    # TODO
-    print("NOT IMPLEMENTED")
-    manual_event_input = False
+    event_string = input().strip()
+
+    # exit manual input
+    if event_string.lower() in ["done", "quit", "exit", 'd', 'q', 'e']:
+        manual_event_input = False
+        break
+
+    parts = event_string.split()
+    
+    # validate input
+    if len(parts) != 4:
+        print("Invalid event format. Expected 4 space-separated values.")
+        continue
+    
+    name, wstart, wend, duration = parts
+    try:
+        wstart = int(wstart)
+        wend = int(wend)
+        duration = int(duration)
+    except:
+        print(
+            "Invalid numeric values. ",
+            "earliest_start, latest_completion, and duration ",
+            "must be integers within the scheduling interval."
+        )
+        continue
+
+    # construct object
+    try:
+        id = str(uuid.uuid4())
+        new_window = window.Window(wstart, wend)
+        new_event = event.Event(name, id, duration, new_window)
+        events.append(new_event)
+    except:
+        print("Unable to create event. Check that window start < window end, ",
+              "and make sure the event duration can fit in the window.")
+        continue
 
 #
 # configure model and solve

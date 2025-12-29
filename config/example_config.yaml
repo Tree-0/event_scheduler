@@ -12,6 +12,8 @@ num_blocks: 672
 
 # TODO: 
 # start dates/times to associate with block 0 in the window 
+# 'YYYYMMDD-HH:MM'
+start_datetime: 20260101-00:00
 
 # json file of events to read in
 event_file: tests/events.json

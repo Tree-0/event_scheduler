@@ -17,6 +17,7 @@ class EventTimeline:
     def display(events: List[Event], config: Config):
         block_size = config.block_size
         num_blocks = config.num_blocks
+        blocks_per_day = max(1, math.ceil((24 * 60) / block_size))
 
         timeline = ['.'] * num_blocks
         legend = []
@@ -36,8 +37,12 @@ class EventTimeline:
             legend.append(f"{label}: {ev.name} ({ev.start_time}–{ev.end_time} min)")
 
         # print timeline
-        print("Blocks ({} min each):".format(block_size))
-        print(''.join(timeline))
+        print("Blocks ({} min each), grouped by ~24h:".format(block_size))
+        day_count = math.ceil(num_blocks / blocks_per_day)
+        for day in range(day_count):
+            start = day * blocks_per_day
+            end = min(start + blocks_per_day, num_blocks)
+            print("Day {:02d}: {}".format(day + 1, ''.join(timeline[start:end])))
         if legend:
             print("Legend:")
             for line in legend:
