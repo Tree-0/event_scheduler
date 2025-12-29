@@ -63,6 +63,6 @@ def write_event_file(jfile: str, events: List[event.Event]):
         if getattr(ev, "end_time", None) is not None:
             ev_json["end_time"] = ev.end_time
         payload.append(ev_json)
-
-    with open(jfile, "x") as file:
+    
+    with open(jfile, "w") as file:
         json.dump(payload, file, indent=2)
