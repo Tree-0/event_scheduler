@@ -33,8 +33,8 @@ class MakespanScheduler(BaseScheduler):
             # if event is infeasible, except
 
             # convert event times to time blocks (lose granularity)
-            window_start_block = math.floor(e.schedulable_window.start / self.block_size)
-            window_end_block = math.floor(e.schedulable_window.end / self.block_size)
+            window_start_block = e.schedulable_window.start // self.block_size
+            window_end_block = e.schedulable_window.end // self.block_size
             duration_blocks =  math.ceil(e.duration  / self.block_size)
 
             if window_end_block - window_start_block < duration_blocks:

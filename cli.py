@@ -3,6 +3,7 @@ import yaml
 import pathlib
 from opt_models import scheduler_factory
 from config.config import Config
+from adapters.event_timeline import EventTimeline
 
 from ortools.sat.python import cp_model # want to abstract this
 
@@ -83,5 +84,9 @@ if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
     for e in scheduler.events:
         print(f"{e.name} - {e.id}")
         print(f"    start: {e.start_time} | end: {e.end_time} | duration: {e.duration} minutes")
+    
+    print(f"\n{'=' * 50}\nTIMELINE: ")
+    EventTimeline.display(scheduler.events, config_obj)
+    print()
 else:
     print("NO SCHEDULING SOLUTION FOUND")
