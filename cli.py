@@ -1,5 +1,3 @@
-import argparse
-import yaml
 import pathlib
 import uuid
 from opt_models import scheduler_factory
@@ -10,6 +8,11 @@ from data_models import event, window
 
 from ortools.sat.python import cp_model # want to abstract this
 
+from data_models.utils import (
+    block_to_datetime,
+    minute_to_datetime
+)
+
 #
 # Read config file
 #
@@ -18,7 +21,8 @@ print("(optional) enter config file: ")
 config_file = input().strip()
 
 if not config_file or not pathlib.Path(config_file).exists():
-    print("Unable to locate config file... using defaults.")
+    print()
+    print(" UNABLE TO LOCATE CONFIG FILE... using defaults.")
 
 config_obj = Config()
 config_obj.load_config(config_file)
@@ -54,6 +58,7 @@ manual_event_input = input('(y/n): ') in ['y', 'Y']
 print()
 
 if manual_event_input:
+    # TODO: Allow entering in datetime format instead?
     minute_slots = config_obj.num_blocks * config_obj.block_size
     print(f"Enter events in the following format (in minutes on the interval [0,{minute_slots}]): ")
     print("[name] [earliest start] [latest completion] [duration]")
@@ -124,7 +129,9 @@ if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
     scheduler.events.sort(key=lambda e: e.start_time)
     for e in scheduler.events:
         print(f"{e.name} - {e.id}")
-        print(f"    start: {e.start_time} | end: {e.end_time} | duration: {e.duration} minutes")
+        print(f"    start: {minute_to_datetime(config_obj.start_datetime, e.start_time)}",
+              f" | end: {minute_to_datetime(config_obj.start_datetime, e.end_time)}",
+              f" | duration: {e.duration} minutes")
     
     print(f"\n{'=' * 50}\nTIMELINE: ")
     EventTimeline.display(scheduler.events, config_obj)
