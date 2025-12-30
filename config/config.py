@@ -11,6 +11,7 @@ class Config:
     event_file: str = ''
     scheduling_model: str = ''
     json_skip_invalid_events: bool = False
+    start_datetime: str = ''
     
     def load_config(self, config_file: str):
         if not config_file:
@@ -25,3 +26,4 @@ class Config:
             self.event_file = config_data['event_file']
             self.scheduling_model = config_data['scheduling_model']
             self.json_skip_invalid_events = config_data['json_parsing']['read_skip_invalid_events']
+            self.start_datetime = config_data['start_datetime']
