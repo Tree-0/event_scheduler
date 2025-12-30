@@ -3,21 +3,24 @@
     "name": "meeting",
     "id": "1",
     "duration": 60,
-    "window_start": 540,
-    "window_end": 600
+    "windows": [
+      { "start": 540, "end": 600 }
+    ]
   },
   {
     "name": "coding",
     "id": "2",
     "duration": 120,
-    "window_start": 600,
-    "window_end": 810
+    "windows": [
+      { "start": 600, "end": 810 }
+    ]
   },
   {
     "name": "reading",
     "id": "3",
     "duration": 90,
-    "window_start": 570,
-    "window_end": 720
+    "windows": [
+      { "start": 570, "end": 720 }
+    ]
   }
 ]

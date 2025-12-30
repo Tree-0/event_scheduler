@@ -6,7 +6,7 @@
 from ortools.sat.python import cp_model
 from data_models import event
 from data_models import utils
-from typing import List, Dict
+from typing import List
 from opt_models.base_scheduler import BaseScheduler
 from config.config import Config
 
@@ -20,60 +20,61 @@ class MakespanScheduler(BaseScheduler):
         self.block_size = config_obj.block_size
         self.num_blocks = config_obj.num_blocks
 
-        # decision variables to solve for
-        self.intervals = {}
-        self.start_vars = {}
-        self.end_vars = {}
+        # per-event optional intervals across windows
+        self.interval_options = {}
 
     def build_model(self):
         # optimize for L, the last task's completion time
         last_complete = self.__model.NewIntVar(0, self.num_blocks, "last_complete")
 
-        for e in self.events:
-            # if event is infeasible, except
+        all_intervals = []
 
-            # convert event times to time blocks (lose granularity)
-            window_start_block = utils.to_blocks(e.schedulable_window.start, self.block_size)
-            window_end_block = utils.to_blocks(e.schedulable_window.end, self.block_size)
+        for e in self.events:
             duration_blocks = utils.duration_to_blocks(e.duration, self.block_size)
 
-            if window_end_block - window_start_block < duration_blocks:
-                raise ValueError(f"event's window is smaller than its duration:\n {e}")
+            options = []
+            for idx, w in enumerate(e.schedulable_windows):
+                window_start_block = utils.to_blocks(w.start, self.block_size)
+                window_end_block = utils.to_blocks(w.end, self.block_size)
+                latest_start = window_end_block - duration_blocks
 
-            # decision variable for when each event starts
-            start_var = self.__model.NewIntVar(
-                # can only be started and finished in-window
-                window_start_block,
-                window_end_block - duration_blocks,
-                f"start_{e.id}"
-            )
-            end_var = self.__model.NewIntVar(0, self.num_blocks, f"end_{e.id}")
-                
-            self.start_vars[e.id] = start_var
-            self.end_vars[e.id] = end_var
+                if latest_start < window_start_block:
+                    # TODO: maybe this should raise an error
+                    continue  # this window too small once blockified
 
-            interval_var = self.__model.NewIntervalVar(
-                start_var,
-                duration_blocks,
-                end_var,
-                f"interval_{e.id}"
-            )
+                start_var = self.__model.NewIntVar(
+                    window_start_block,
+                    latest_start,
+                    f"start_{e.id}_{idx}"
+                )
+                end_var = self.__model.NewIntVar(0, self.num_blocks, f"end_{e.id}_{idx}")
+                presence = self.__model.NewBoolVar(f"present_{e.id}_{idx}")
 
-            self.intervals[e.id] = interval_var
+                interval_var = self.__model.NewOptionalIntervalVar(
+                    start_var,
+                    duration_blocks,
+                    end_var,
+                    presence,
+                    f"interval_{e.id}_{idx}"
+                )
 
-            #
-            # constraints
-            #
+                options.append((presence, start_var, end_var, interval_var))
+                all_intervals.append(interval_var)
 
-            # end time is determined by start time of an interval (duh)
-            # maybe this is determined by the IntervalVar implicit constraint?
-            # self.__model.Add(end_var == start_var + e.duration)
-            
+            if not options:
+                raise ValueError(f"No feasible window for event {e}")
+
+            # exactly one window chosen per event
+            self.__model.Add(sum(p for p, _, _, _ in options) == 1)
+
+            # link last_complete to the chosen end
+            for p, _, end_var, _ in options:
+                self.__model.Add(last_complete >= end_var).OnlyEnforceIf(p)
+
+            self.interval_options[e.id] = options
+
         # events cannot overlap with each other
-        self.__model.AddNoOverlap(self.intervals.values())
-
-        # last_complete cannot be smaller than the completion time of the last task
-        self.__model.AddMaxEquality(last_complete, self.end_vars.values())
+        self.__model.AddNoOverlap(all_intervals)
 
         # Objective
         # solve for earliest completion time of last task
@@ -86,8 +87,13 @@ class MakespanScheduler(BaseScheduler):
             print("LP WAS SOLVEABLE WITH STATUS ", status)
             # create dictionary mapping of ids to events
             for e in self.events:
-                e.start_time = self.__solver.value(self.start_vars[e.id]) * self.block_size
-                e.end_time = self.__solver.value(self.end_vars[e.id]) * self.block_size
+                options = self.interval_options[e.id]
+                chosen = next((opt for opt in options if self.__solver.Value(opt[0])), None)
+                if chosen is None:
+                    continue
+                _, start_var, end_var, _ = chosen
+                e.start_time = self.__solver.Value(start_var) * self.block_size
+                e.end_time = self.__solver.Value(end_var) * self.block_size
         else:
             print("LP WAS INFEASIBLE WITH STATUS ", status)
             print(self.__model.Validate())

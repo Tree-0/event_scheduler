@@ -5,7 +5,7 @@
 # - solver outputs
 #
 
-import json 
+import json
 from typing import List
 from data_models import event, window
 
@@ -17,17 +17,17 @@ def read_event_file(jfile: str, skip_invalid: bool=True) -> List[event.Event]:
 
         # parse json into events
         for event_json in json_data:
-            event_window = window.Window(
-                start = event_json["window_start"],
-                end = event_json["window_end"]
-            )
+            win_list = [
+                window.Window(start=w["start"], end=w["end"])
+                for w in event_json["windows"]
+            ]
 
             try:
                 new_event = event.Event(
-                    name = event_json["name"],
-                    id = event_json["id"],
-                    duration = event_json["duration"],
-                    schedulable_window = event_window
+                    name=event_json["name"],
+                    id=event_json["id"],
+                    duration=event_json["duration"],
+                    schedulable_windows=win_list,
                 )
             except: # if we have an invalid event
                 if skip_invalid:
@@ -55,8 +55,9 @@ def write_event_file(jfile: str, events: List[event.Event]):
             "name": ev.name,
             "id": ev.id,
             "duration": ev.duration,
-            "window_start": ev.schedulable_window.start,
-            "window_end": ev.schedulable_window.end,
+            "windows": [
+                {"start": w.start, "end": w.end} for w in ev.schedulable_windows
+            ],
         }
         if getattr(ev, "start_time", None) is not None:
             ev_json["start_time"] = ev.start_time
