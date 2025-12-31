@@ -10,7 +10,6 @@ block_size: 15
 # 672 = 1 week of time blocks
 num_blocks: 672 
 
-# TODO: 
 # start dates/times to associate with block 0 in the window 
 # 'YYYYMMDD-HH:MM'
 start_datetime: 20260101-00:00

@@ -8,3 +8,6 @@ tests/outputs/*
 
 # personal change log to track progress
 DEVLOG.md
+
+.env
+client_secret*

@@ -122,7 +122,7 @@ scheduler = model_factory.create_scheduler_model(
 scheduler.build_model()
 status = scheduler.solve()
 
-# TODO: expand checks for solver status, provide more info, visual display of events
+# TODO: expand checks for solver status, provide more info
 # TODO: abstract out cp_model from cli.py
 # print events by start time
 if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
