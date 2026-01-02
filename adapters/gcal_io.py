@@ -24,7 +24,8 @@ class GoogleCalendarIO:
         self.SCOPES = ["https://www.googleapis.com/auth/calendar.events.owned"]
         
         self.__credentials = self.__get_credentials()
-        print(self.__credentials.to_json())
+        if not self.__credentials:
+            raise ValueError("Unable to get credentials for from gcal API upon GoogleCalendarIO init")
 
     # Not sure how many of these methods will be necessary, and some will probably be redesigned
 
