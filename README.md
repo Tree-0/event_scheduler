@@ -29,3 +29,6 @@ scheduler/
 
   cli.py                    # main entrypoint
 ```
+
+# Getting Started
+`TODO -> steps to get google calendar api key credentials and put them in config/client_secret_*`

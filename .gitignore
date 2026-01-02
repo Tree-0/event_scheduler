@@ -11,3 +11,4 @@ DEVLOG.md
 
 .env
 client_secret*
+token.json
