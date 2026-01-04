@@ -12,6 +12,7 @@ class Config:
     scheduling_model: str = ''
     json_skip_invalid_events: bool = False
     start_datetime: str = ''
+    user_timezone: str = 'UTC'
     
     def load_config(self, config_file: str):
         if not config_file:
@@ -27,3 +28,4 @@ class Config:
             self.scheduling_model = config_data['scheduling_model']
             self.json_skip_invalid_events = config_data['json_parsing']['read_skip_invalid_events']
             self.start_datetime = config_data['start_datetime']
+            self.user_timezone = config_data.get('user_timezone', self.user_timezone)

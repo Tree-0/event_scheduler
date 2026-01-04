@@ -14,6 +14,9 @@ num_blocks: 672
 # 'YYYYMMDD-HH:MM'
 start_datetime: 20260101-00:00
 
+# IANA timezone name used for interpreting start_datetime and uploads
+user_timezone: America/Chicago
+
 # json file of events to read in
 event_file: tests/events.json
 

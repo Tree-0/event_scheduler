@@ -159,16 +159,25 @@ if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
 
         base_start_dt: datetime = cli_input_utils.user_input_datetime(config_obj)
 
+        upload_tz = config_obj.user_timezone or "UTC"
+        try:
+            # validate TZ early; ZoneInfo errors if invalid
+            from zoneinfo import ZoneInfo
+            ZoneInfo(upload_tz)
+        except Exception:
+            print("Configured timezone invalid; defaulting upload timezone to UTC.")
+            upload_tz = "UTC"
+
         gcal_events = []
         for e in scheduler.events:
             gcal_event = event_to_gcal_event(e, base_start_dt, e.description)
             print(gcal_event)
             gcal_events.append(gcal_event)
-        
-        # TODO: let user choose what calendar they are uploading to
-        # uploaded_count = gcal_io.send_events_to_calendar("primary", gcal_events)
 
-        # print(f"{uploaded_count}/{len(gcal_events)} uploaded to primary google calendar.")
+        # TODO: let user choose what calendar they are uploading to
+        uploaded_count = gcal_io.send_events_to_calendar("primary", gcal_events, upload_tz)
+
+        print(f"{uploaded_count}/{len(gcal_events)} uploaded to primary google calendar.")
     
 else:
     print("NO SCHEDULING SOLUTION FOUND")

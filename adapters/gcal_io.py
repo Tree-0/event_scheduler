@@ -6,6 +6,7 @@ import os.path
 from typing import List
 import sys
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # Allow running this file directly (python adapters/gcal_io.py) by adding project root to sys.path
 if __package__ in (None, ""):
@@ -33,20 +34,24 @@ class GoogleCalendarIO:
     # Not sure how many of these methods will be necessary, and some will probably be redesigned
 
     # TODO: return bool or just event_result? what is event_result type, dict?
-    def send_event_to_calendar(self, calendar_id: str, event: GoogleCalendarEvent):
+    def send_event_to_calendar(self, calendar_id: str, event: GoogleCalendarEvent, time_zone: str = 'UTC'):
         try:
             service = build("calendar", "v3", credentials=self.__credentials)
+
+            tz = ZoneInfo(time_zone)
+            start_local = event.start_dt.astimezone(tz)
+            end_local = event.end_dt.astimezone(tz)
             
             event = {
                 'summary': event.summary,
                 'description': event.description,
                 'start': {
-                    'dateTime': event.start_dt.isoformat(),
-                    'timeZone': 'America/Chicago',
+                    'dateTime': start_local.isoformat(),
+                    'timeZone': time_zone,
                 },
                 'end': {
-                    'dateTime': event.end_dt.isoformat(),
-                    'timeZone': 'America/Chicago',
+                    'dateTime': end_local.isoformat(),
+                    'timeZone': time_zone,
                 },
             }
             
@@ -60,11 +65,11 @@ class GoogleCalendarIO:
 
     # TODO: look into batching? This would not save on API quota, and network overhead is probably not going to ever be a bottleneck,
     # so might not be a big deal.
-    def send_events_to_calendar(self, calendar_id: str, events: List[GoogleCalendarEvent]) -> int:
+    def send_events_to_calendar(self, calendar_id: str, events: List[GoogleCalendarEvent], time_zone: str = 'UTC') -> int:
         status = 0
         for event in events:
             try:
-                self.send_event_to_calendar(calendar_id, event)
+                self.send_event_to_calendar(calendar_id, event, time_zone)
                 status += 1
             except Exception as e:
                 print(e)
