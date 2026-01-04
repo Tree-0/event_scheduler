@@ -4,27 +4,29 @@
 - Send the optimally scheduled events to Google Calendar via the API
 
 ```
-scheduler/
-  config/
-    config.py
-    example_config.yaml
-
-  data_models/              # dataclasses: Event, Window, Request, Result
-    event.py
-    window.py
-    utils.py
-
-  opt_models/
-    base.py                 # interface/protocol + shared helpers
-    makespan.py             # v1: minimize makespan
-    etc; other schedulers...
-    
+event_scheduler/
   adapters/
     json_io.py              # load/save test cases
-    gcal.py                 # TODO: google calendar read/write
+    gcal_io.py              # api interface -- google calendar read/write
     event_timeline.py       # simple visualization tool
 
-  tests/                    #
+  config/
+    config.py               # settings and values for running the program
+    example_config.yaml
+
+  data_models/              # dataclasses and relevant utils
+    event.py
+    window.py
+    gcal.py
+    utils.py
+
+  opt_models/               # optimization models for different criteria and constraints
+    base_scheduler.py       # interface/protocol + shared helpers
+    scheduler_factory.py    # makes schedulers from particular mathematical models
+    makespan.py             # v1: minimize last task completion time
+    ... TODO
+
+  tests/                    # take a guess
     ...                     #
 
   cli.py                    # main entrypoint
