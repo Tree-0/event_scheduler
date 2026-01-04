@@ -28,7 +28,7 @@ class GoogleCalendarIO:
         
         self.__credentials = self.__get_credentials()
         if not self.__credentials:
-            raise ValueError("Unable to get credentials for from gcal API upon GoogleCalendarIO init")
+            raise ValueError("Unable to get credentials for gcal API upon GoogleCalendarIO init")
 
     # Not sure how many of these methods will be necessary, and some will probably be redesigned
 
@@ -60,13 +60,17 @@ class GoogleCalendarIO:
 
     # TODO: look into batching? This would not save on API quota, and network overhead is probably not going to ever be a bottleneck,
     # so might not be a big deal.
-    def send_events_to_calendar(self, calendar_id: str, events: List[GoogleCalendarEvent]) -> bool:
+    def send_events_to_calendar(self, calendar_id: str, events: List[GoogleCalendarEvent]) -> int:
+        status = 0
         for event in events:
             try:
                 self.send_event_to_calendar(calendar_id, event)
+                status += 1
             except Exception as e:
                 print(e)
                 continue
+        
+        return status # how many events successfully uploaded?
 
     def sync_google_calendar(calendar: GoogleCalendar) -> bool:
         # get id from obj, write all events to the calendar if they are not already there?

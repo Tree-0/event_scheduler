@@ -1,17 +1,24 @@
 import pathlib
 import uuid
+import datetime
+
 from opt_models import scheduler_factory
 from config.config import Config
 from adapters.event_timeline import EventTimeline
 from adapters.json_io import read_event_file, write_event_file
+from adapters.gcal_io import GoogleCalendarIO
 from data_models import event, window
 
 from ortools.sat.python import cp_model # want to abstract this
 
 from data_models.utils import (
     block_to_datetime,
-    minute_to_datetime
+    minute_to_datetime,
+    event_to_gcal_event,
+    gcal_event_to_model_event
 )
+
+import cli_input_utils
 
 #
 # Read config file
@@ -123,7 +130,7 @@ scheduler.build_model()
 status = scheduler.solve()
 
 # TODO: expand checks for solver status, provide more info
-# TODO: abstract out cp_model from cli.py
+# TODO: abstract out cp_model from cli.py?
 # print events by start time
 if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
     scheduler.events.sort(key=lambda e: e.start_time)
@@ -139,5 +146,29 @@ if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
 
     # serialize to json
     write_event_file(f"tests/outputs/{event_file.split('/')[-1]}", scheduler.events)
+
+    #
+    # Write events to google calendar API
+    #
+
+    print("Write this schedule to your Google Calendar?")
+    write_to_gcal = input("(y/n): ").strip().lower() == 'y'
+    if write_to_gcal:
+        gcal_io = GoogleCalendarIO()
+        # convert model events to google cal events
+
+        base_start_dt: datetime = cli_input_utils.user_input_datetime(config_obj)
+
+        gcal_events = []
+        for e in scheduler.events:
+            gcal_event = event_to_gcal_event(e, base_start_dt, e.description)
+            print(gcal_event)
+            gcal_events.append(gcal_event)
+        
+        # TODO: let user choose what calendar they are uploading to
+        # uploaded_count = gcal_io.send_events_to_calendar("primary", gcal_events)
+
+        # print(f"{uploaded_count}/{len(gcal_events)} uploaded to primary google calendar.")
+    
 else:
     print("NO SCHEDULING SOLUTION FOUND")

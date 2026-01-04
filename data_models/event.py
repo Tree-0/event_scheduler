@@ -5,12 +5,13 @@ from data_models.window import Window, merge_windows
 @dataclass
 class Event:
     name: str # event name
-    id: str # some uuid? <-- want to differentiate events of the same name
-
+    id: str # uuid - differentiate events of the same name
     duration: int  # in minutes
 
     # list of windows in which the Event is allowed to be scheduled
     schedulable_windows: List[Window]
+
+    description: str = '' # optional notes about event (for mapping to gcal events)
 
     start_time: int = None # determined later
     end_time: int = None # determined later (start_time + duration)
@@ -32,5 +33,3 @@ class Event:
 
         # store merged list back
         object.__setattr__(self, "schedulable_windows", merged)
-
-    
