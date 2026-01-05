@@ -83,9 +83,6 @@ class GoogleCalendarIO:
         # find way to do it such that we minimize the amount of the api quota we use
         pass
 
-    def read_google_calendar(calendar_id: str, ) -> bool:
-        pass
-
     # TODO: consider... do I really need custom GoogleCalendar and GoogleCalendarEvent objects,
     # or do the objects returned by the resource builder work well enough such that my custom
     # objects are redundant? 
@@ -172,10 +169,10 @@ if __name__ == "__main__":
     result = gcal_io.get_all_calendars()
     [print(item["summary"]) for item in result.get("items", [])]
     
-    first_cal = result["items"][3]["id"]
+    primary_cal_id = result["items"][3]["id"]
     
     now = datetime.datetime.now(tz=datetime.timezone.utc)
-    events = gcal_io.get_calendar_events(now, first_cal, 10)
+    events = gcal_io.get_calendar_events(now, primary_cal_id, 10)
 
     for event in events:
         print(event["summary"])
@@ -190,8 +187,8 @@ if __name__ == "__main__":
         end_dt = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(hours=2)
     )
 
-    print("sending test event to calendar ", first_cal)
-    insert_event_result = gcal_io.send_event_to_calendar(first_cal, test_event)
+    print("sending test event to calendar ", primary_cal_id)
+    insert_event_result = gcal_io.send_event_to_calendar(primary_cal_id, test_event)
 
     print(insert_event_result)
 

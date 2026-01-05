@@ -1,5 +1,4 @@
 import pathlib
-import uuid
 import datetime
 
 from opt_models import scheduler_factory
@@ -60,54 +59,10 @@ print()
 # manually enter additional events
 #
 
-print("Would you like to manually input events?")
-manual_event_input = input('(y/n): ') in ['y', 'Y']
-print()
-
-if manual_event_input:
-    # TODO: Allow entering in datetime format instead?
-    minute_slots = config_obj.num_blocks * config_obj.block_size
-    print(f"Enter events in the following format (in minutes on the interval [0,{minute_slots}]): ")
-    print("[name] [earliest start] [latest completion] [duration]")
-
-while manual_event_input:
-    event_string = input().strip()
-
-    # exit manual input
-    if event_string.lower() in ["done", "quit", "exit", 'd', 'q', 'e']:
-        manual_event_input = False
-        break
-
-    parts = event_string.split()
-    
-    # validate input
-    if len(parts) != 4:
-        print("Invalid event format. Expected 4 space-separated values.")
-        continue
-    
-    name, wstart, wend, duration = parts
-    try:
-        wstart = int(wstart)
-        wend = int(wend)
-        duration = int(duration)
-    except:
-        print(
-            "Invalid numeric values. ",
-            "earliest_start, latest_completion, and duration ",
-            "must be integers within the scheduling interval."
-        )
-        continue
-
-    # construct object
-    try:
-        id = str(uuid.uuid4())
-        new_window = window.Window(wstart, wend)
-        new_event = event.Event(name, id, duration, new_window)
-        events.append(new_event)
-    except:
-        print("Unable to create event. Check that window start < window end, ",
-              "and make sure the event duration can fit in the window.")
-        continue
+user_input_events = cli_input_utils.user_input_events(
+    config_obj.num_blocks, config_obj.block_size
+)
+events.extend(user_input_events)
 
 #
 # configure model and solve
