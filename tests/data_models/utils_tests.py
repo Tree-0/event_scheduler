@@ -20,7 +20,6 @@ from data_models.gcal import GoogleCalendarEvent
 START = "20260101-00:00"
 BLOCK = 15
 
-
 @pytest.mark.parametrize(
     "minutes, block_size, expected",
     [

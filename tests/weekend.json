@@ -1,0 +1,39 @@
+[
+    {
+        "name": "meal_prep_1",
+        "id": "meal_prep_1",
+        "duration": "60",
+        "windows": [
+            {"start": 128, "end": 160},
+            {"start": 176, "end": 184}
+        ]
+    },
+    {
+        "name": "meal_prep_2",
+        "id": "meal_prep_2_chicken",
+        "duration": "75",
+        "windows": [
+            {"start": 128, "end": 160},
+            {"start": 176, "end": 184},
+            {"start": 224, "end": 288}
+        ]
+    },
+    {
+        "name": "gym_1",
+        "id": "gym_friday"
+    },
+    {
+        "name": "gym_2",
+        "id": "gym_saturday"
+    },
+    {
+        "name": "gym_3",
+        "id": "gym_sunday"
+    },
+    {
+        "name": "interview_prep_1"
+    },
+    {
+        "name": "interview_prep_2"
+    }
+]
