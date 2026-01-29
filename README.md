@@ -34,3 +34,7 @@ event_scheduler/
 
 # Getting Started
 `TODO -> steps to get google calendar api key credentials and put them in config/client_secret_*`
+
+- Notes (need to clean up)
+  - Will need a `token.json` file inside `/config/`. This will be generated when you authenticate. If you get "access token denied", you probably need to delete this folder and re-authenticate. I need to just make this file get overwritten rather than denying the token if it already exists. Lots of backlog to work through
+  - Will need to look into the method google OAuth has for allowing me to authenticate another user on their behalf ... that's one thing required to get other people using this for their own calendars
