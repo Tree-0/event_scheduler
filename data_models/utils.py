@@ -133,3 +133,37 @@ def gcal_event_to_model_event(g_event: gcal.GoogleCalendarEvent, base_start: dat
         start_time=start_min,
         end_time=end_min,
     )
+
+#
+# Checking for overlap and conflicts between events
+#
+
+def _deduplicate_events(events):
+    """Drop duplicate event IDs (Google Calendar can return the same event more than once)."""
+    deduped = []
+    seen_ids = set()
+    for ev in events:
+        if ev.id in seen_ids:
+            print(f"Skipping duplicate event id={ev.id} name={ev.name}")
+            continue
+        seen_ids.add(ev.id)
+        deduped.append(ev)
+    return deduped
+
+
+def _warn_overlapping_fixed_events(events):
+    """Emit a warning if two fixed events (no slack in their only window) overlap."""
+    fixed = []
+    for ev in events:
+        if len(ev.schedulable_windows) != 1:
+            continue
+        win = ev.schedulable_windows[0]
+        if (win.end - win.start) != ev.duration:
+            continue  # not fully fixed; scheduler can slide it
+        fixed.append((win.start, win.end, ev))
+
+    fixed.sort(key=lambda t: t[0])
+    for first, second in zip(fixed, fixed[1:]):
+        if first[1] > second[0]:
+            a, b = first[2], second[2]
+            print(f"Warning: fixed events overlap -> '{a.name}' [{first[0]}, {first[1]}] and '{b.name}' [{second[0]}, {second[1]}]")
