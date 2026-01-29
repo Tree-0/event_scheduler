@@ -1,11 +1,27 @@
 import math
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from data_models import event, window, gcal
 
 _DT_FMT = "%Y%m%d-%H:%M"
-def _parse(dt_str: str) -> datetime:
+def dt_str_parse(dt_str: str) -> datetime:
     return datetime.strptime(dt_str, _DT_FMT)
+
+def dt_str_parse(dt_str: str, tz:str) -> datetime:
+    dt = datetime.strptime(dt_str, _DT_FMT,)
+    dt_tz = dt.replace(tzinfo=ZoneInfo(tz))
+    return dt_tz
+
+def parse_gcal_datetime(raw: str, default_tz=timezone.utc) -> datetime:
+    """
+    Parse Google Calendar dateTime/date strings into aware datetimes.
+    - dateTime: ISO8601 with 'Z' or offset
+    - date: all-day; interpreted at 00:00 in default_tz
+    """
+    if "T" in raw:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    return datetime.fromisoformat(raw).replace(tzinfo=default_tz)
 
 def to_blocks(minutes, block_size):
     return minutes // block_size
@@ -21,8 +37,8 @@ def datetime_to_block(datetime: str, start_date: str, block_size: int):
     return to_blocks(minutes, block_size)
 
 def datetime_to_minute(datetime: str, start_date: str):
-    start_dt = _parse(start_date)
-    target_dt = _parse(datetime)
+    start_dt = dt_str_parse(start_date)
+    target_dt = dt_str_parse(datetime)
     delta = target_dt - start_dt
     return int(delta.total_seconds() // 60)
 
@@ -31,7 +47,7 @@ def block_to_datetime(start_date: str, block_size: int, block: int):
     return minute_to_datetime(start_date, minutes)
 
 def minute_to_datetime(start_date: str, minute: int):
-    start_dt = _parse(start_date)
+    start_dt = dt_str_parse(start_date)
     target_dt = start_dt + timedelta(minutes=minute)
     return target_dt.strftime(_DT_FMT)
 

@@ -10,15 +10,16 @@ class GoogleCalendarEvent:
     id: str
     summary: str
     description: str
-    
-    # assume UTC time
+
+    # will be in a specified timezone from config, or UTC default
     start_dt: datetime
     end_dt: datetime
 
     colorId: str = ''
 
-    # need some constructor that takes an event.Event object and translates the data
-    pass
+    # need some constructor that takes an event.Event object and translates the data.
+    # Alternatively (and what I currently do), a util function for conversions can work.
+    # see data_models/utils.py
 
 @dataclass
 class GoogleCalendar:
