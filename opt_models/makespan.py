@@ -35,7 +35,10 @@ class MakespanScheduler(BaseScheduler):
             options = []
             for idx, w in enumerate(e.schedulable_windows):
                 window_start_block = utils.to_blocks(w.start, self.block_size)
-                window_end_block = utils.to_blocks(w.end, self.block_size)
+                
+                # round end_block up -> ex: 25 minute duration w/ 15 minute blocks, 
+                # 25 / 15 = 1.67 blocks, but need 2 full blocks to hold this duration
+                window_end_block = utils.duration_to_blocks(w.end, self.block_size)
                 latest_start = window_end_block - duration_blocks
 
                 if latest_start < window_start_block:
