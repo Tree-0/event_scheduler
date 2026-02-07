@@ -13,6 +13,7 @@ if __package__ in (None, ""):
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from data_models.gcal import GoogleCalendarEvent, GoogleCalendar
+from data_models.utils import parse_gcal_datetime
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -39,8 +40,11 @@ class GoogleCalendarIO:
             service = build("calendar", "v3", credentials=self.__credentials)
 
             tz = ZoneInfo(time_zone)
-            start_local = event.start_dt.astimezone(tz)
-            end_local = event.end_dt.astimezone(tz)
+            start_dt = event.start_dt if event.start_dt.tzinfo else event.start_dt.replace(tzinfo=datetime.timezone.utc)
+            end_dt = event.end_dt if event.end_dt.tzinfo else event.end_dt.replace(tzinfo=datetime.timezone.utc)
+
+            start_local = start_dt.astimezone(tz)
+            end_local = end_dt.astimezone(tz)
             
             event = {
                 'summary': event.summary,
@@ -104,20 +108,22 @@ class GoogleCalendarIO:
         except Exception as e:
             print(e)
     
-    def get_calendar_events(self, after_dt: datetime, calendar_id: str, limit=100):
+    def get_calendar_events(self, after_dt: datetime, before_dt: datetime=None, calendar_id: str="primary", limit=100):
         # get the events from a particular calendar after a date
         try:
             service = build("calendar", "v3", credentials=self.__credentials)
 
             # str format for request body
-            dt = after_dt.isoformat()
+            start_dt = after_dt.isoformat()
+            end_dt = before_dt.isoformat() if before_dt else datetime.datetime.max.isoformat()
             
             print(f"Getting events from {calendar_id} after {after_dt.isoformat()}")
             events_result = (
                 service.events()
                 .list(
                     calendarId=calendar_id,
-                    timeMin=dt,
+                    timeMin=start_dt,
+                    timeMax=end_dt,
                     maxResults=limit,
                     singleEvents=True,
                     orderBy="startTime",
@@ -135,6 +141,78 @@ class GoogleCalendarIO:
         except Exception as e:
             print(e)
             return []
+    
+    # TODO: this should probably just call get_calendar_events() and parse output
+    def get_calendar_events_objects(
+            self, 
+            after_dt: datetime, 
+            before_dt: datetime,
+            calendar_id: str,
+            limit=100,
+    ) -> List[GoogleCalendarEvent]:
+        '''
+        returns up to `limit` `GoogleCalendarEvent` objects from a specified calendar
+        `calendar_id`. Only returns events after `after_dt` and before `before_dt`. 
+        Similar to GoogleCalendarIO.get_calendar_events(), but returns a list of objects instead 
+        of json dicts.
+        '''
+        gcal_event_objs = []
+
+        # get the events from a particular calendar after a date
+        service = build("calendar", "v3", credentials=self.__credentials)
+
+        # str format for request body
+        after_dt_str = after_dt.isoformat()
+        before_dt_str = before_dt.isoformat()
+
+        if after_dt >= before_dt:
+            raise ValueError(f"arg before_dt {(before_dt_str)} must be greater than arg after_dt {(after_dt_str)}")
+        
+        # get raw events from Google Calendar
+        print(f"Getting events from {calendar_id} after {after_dt.isoformat()}")
+        events_result = (
+            service.events()
+            .list(
+                calendarId=calendar_id,
+                timeMin=after_dt_str,
+                timeMax=before_dt_str,
+                maxResults=limit,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
+        events = events_result.get("items", [])
+
+        if not events:
+            print("No upcoming events found.")
+            return []
+        
+        # convert raw response into objects (timed events only; skip all-day)
+        for ev in events:
+            raw_start_dt = ev["start"].get("dateTime")
+            raw_end_dt = ev["end"].get("dateTime")
+
+            # Skip all-day events for now
+            if not raw_start_dt or not raw_end_dt:
+                print(f"Skipping all-day or incomplete event: {ev.get('summary', '(no summary)')}")
+                continue
+
+            start_dt = parse_gcal_datetime(raw_start_dt).astimezone(datetime.timezone.utc)
+            end_dt = parse_gcal_datetime(raw_end_dt).astimezone(datetime.timezone.utc)
+
+            gcal_event_objs.append(
+                GoogleCalendarEvent(
+                    id=ev["id"],
+                    summary=ev.get("summary", ""),
+                    description=ev.get("description", ""),
+                    colorId=ev.get("colorId", ""),
+                    start_dt=start_dt,
+                    end_dt=end_dt
+                )
+            )
+        
+        return gcal_event_objs
 
     # Modified starter code taken from quickstart documentation of google calendar API
     def __get_credentials(self) -> Credentials:
@@ -179,6 +257,7 @@ if __name__ == "__main__":
         #print(f"    {event['start']['dateTime']} - {event['end']['dateTime']}")
         print(f"    {event['start']} - {event['end']}")
         print(type(event['start']))
+        print(event)
 
     test_event = GoogleCalendarEvent(
         id='', summary="TEST EVENT API INSERT",
@@ -187,9 +266,10 @@ if __name__ == "__main__":
         end_dt = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(hours=2)
     )
 
-    print("sending test event to calendar ", primary_cal_id)
-    insert_event_result = gcal_io.send_event_to_calendar(primary_cal_id, test_event)
+    # print("sending test event to calendar ", primary_cal_id)
+    # insert_event_result = gcal_io.send_event_to_calendar(primary_cal_id, test_event)
+    # print(insert_event_result)
 
-    print(insert_event_result)
+
 
 
