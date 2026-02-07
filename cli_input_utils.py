@@ -6,14 +6,8 @@ import datetime
 import uuid
 from zoneinfo import ZoneInfo
 
-from data_models.utils import _DT_FMT
+from data_models.utils import parse_iso_datetime
 from data_models import event, window
-
-
-def _parse_base_datetime(dt_str: str, tz_name: str) -> datetime.datetime:
-    """Parse user-provided base datetime to an aware datetime using an IANA timezone."""
-    tz = ZoneInfo(tz_name)
-    return datetime.datetime.strptime(dt_str, _DT_FMT).replace(tzinfo=tz)
 
 
 def user_input_datetime(config_obj=None) -> datetime.datetime:
@@ -22,21 +16,21 @@ def user_input_datetime(config_obj=None) -> datetime.datetime:
     tz_name = getattr(config_obj, "user_timezone", "UTC") if config_obj else "UTC"
 
     base_input = input(
-        "Enter base datetime for upload (YYYYMMDD-HH:MM). "
+        "Enter base datetime for upload (ISO 8601 with offset, e.g., 2026-01-01T00:00:00-06:00). "
         "Leave blank to use config start_datetime or now (configured TZ): "
     ).strip()
 
     base_start_dt = None
     if base_input:
         try:
-            base_start_dt = _parse_base_datetime(base_input, tz_name)
+            base_start_dt = parse_iso_datetime(base_input).astimezone(ZoneInfo(tz_name))
         except Exception:
-            print("Invalid datetime or timezone; expected YYYYMMDD-HH:MM with a valid IANA TZ. Using fallback.")
+            print("Invalid datetime; expected ISO 8601 with timezone offset. Using fallback.")
 
     if base_start_dt is None and config_obj and config_obj.start_datetime:
         try:
             # try to use start_datetime from config
-            base_start_dt = _parse_base_datetime(config_obj.start_datetime, tz_name)
+            base_start_dt = parse_iso_datetime(config_obj.start_datetime).astimezone(ZoneInfo(tz_name))
         except Exception:
             print("Config start_datetime invalid; using current time in configured TZ.")
 

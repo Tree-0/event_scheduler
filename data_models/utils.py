@@ -1,6 +1,6 @@
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Union
+from typing import Union, List
 
 from data_models import event, window, gcal
 
@@ -138,7 +138,7 @@ def gcal_event_to_model_event(g_event: gcal.GoogleCalendarEvent, base_start: dat
 # Checking for overlap and conflicts between events
 #
 
-def _deduplicate_events(events):
+def deduplicate_events(events):
     """Drop duplicate event IDs (Google Calendar can return the same event more than once)."""
     deduped = []
     seen_ids = set()
@@ -151,7 +151,7 @@ def _deduplicate_events(events):
     return deduped
 
 
-def _warn_overlapping_fixed_events(events):
+def warn_overlapping_fixed_events(events):
     """Emit a warning if two fixed events (no slack in their only window) overlap."""
     fixed = []
     for ev in events:
@@ -167,3 +167,56 @@ def _warn_overlapping_fixed_events(events):
         if first[1] > second[0]:
             a, b = first[2], second[2]
             print(f"Warning: fixed events overlap -> '{a.name}' [{first[0]}, {first[1]}] and '{b.name}' [{second[0]}, {second[1]}]")
+
+def merge_overlapping_fixed_events(events: List[event.Event]):
+    """
+    Given a list of fixed events, return a new list with any overlapping fixed events merged into one new event
+    that covers the entire interval. This is to prevent infeasibility in the CP scheduler. 
+    """
+    # Identify fixed events
+    fixed = []
+    non_fixed = []
+    for ev in events:
+        if len(ev.schedulable_windows) != 1:
+            non_fixed.append(ev)
+            continue
+        win = ev.schedulable_windows[0]
+        if (win.end - win.start) != ev.duration:
+            non_fixed.append(ev)
+            continue
+        fixed.append((win.start, win.end, ev))
+    
+    if not fixed:
+        return events
+    
+    # Sort by start time
+    fixed.sort(key=lambda t: t[0])
+    
+    # Merge overlapping intervals
+    merged_intervals = []
+    current_start, current_end, merged_event = fixed[0]
+    
+    for start, end, ev in fixed[1:]:
+        if start <= current_end:
+            # Overlapping or adjacent; merge
+            current_end = max(current_end, end)
+            # Merge event names and take union of properties
+            merged_event = event.Event(
+                name=f"{merged_event.name}|{ev.name}",
+                id=merged_event.id,
+                duration=current_end - current_start,
+                schedulable_windows=[window.Window(start=current_start, end=current_end)],
+                start_time=current_start,
+                end_time=current_end,
+            )
+        else:
+            # No overlap; save current and start new
+            merged_intervals.append((current_start, current_end, merged_event))
+            current_start, current_end, merged_event = start, end, ev
+    
+    # Add the last interval
+    merged_intervals.append((current_start, current_end, merged_event))
+    
+    # Return merged fixed events plus non-fixed events
+    result = [merged_event for _, _, merged_event in merged_intervals] + non_fixed
+    return result

@@ -1,5 +1,6 @@
 import pathlib
-import datetime
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 from opt_models import scheduler_factory
 from config.config import Config
@@ -8,13 +9,17 @@ from adapters.json_io import read_event_file, write_event_file
 from adapters.gcal_io import GoogleCalendarIO
 from data_models import event, window
 
+from typing import List
+
 from ortools.sat.python import cp_model # want to abstract this
 
 from data_models.utils import (
     block_to_datetime,
-    minute_to_datetime,
     event_to_gcal_event,
-    gcal_event_to_model_event
+    gcal_event_to_model_event,
+    deduplicate_events,
+    warn_overlapping_fixed_events,
+    merge_overlapping_fixed_events
 )
 
 import cli_input_utils
@@ -39,7 +44,7 @@ print(config_obj)
 # read events from file
 #
 
-events = []
+events: List[event.Event] = []
 
 event_file = config_obj.event_file
 if event_file:
@@ -59,10 +64,54 @@ print()
 # manually enter additional events
 #
 
+# TODO: are these coerced into UTC properly?
 user_input_events = cli_input_utils.user_input_events(
     config_obj.num_blocks, config_obj.block_size
 )
 events.extend(user_input_events)
+
+#
+# Read Google Calendar events that exist in the window we are scheduling.
+# Currently we read a bunch of events after the start_date
+# Treat these events as fixed: i.e. other events must not overlap with these
+
+gcal_io = GoogleCalendarIO()
+
+# get the configured timezone for the date times the user is inputting
+user_tz = ZoneInfo(config_obj.user_timezone)
+
+# get config starting date, or set to today if none provided
+config_start_dt = config_obj.start_datetime
+
+if config_start_dt is None:
+    config_start_dt = datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+# compute the last datetime in our window based on our scheduling
+# block size and the number of blocks
+config_before_dt = block_to_datetime(
+    config_start_dt,
+    config_obj.block_size,
+    config_obj.num_blocks
+)
+
+fixed_gcal_events = gcal_io.get_calendar_events_objects(
+    config_start_dt,
+    config_before_dt,
+    'primary',
+    limit=20
+)
+
+modeled_gcal_events = [gcal_event_to_model_event(gcal_ev, config_start_dt) for gcal_ev in fixed_gcal_events]
+# convert gcal to model events
+events.extend(modeled_gcal_events)
+
+events = deduplicate_events(events)
+warn_overlapping_fixed_events(events)
+merged_events = merge_overlapping_fixed_events(events)
+
+print("All events to be sent to scheduler: ")
+for e in merged_events:
+    print(e)
 
 #
 # configure model and solve
@@ -77,7 +126,7 @@ if not scheduling_model:
 model_factory = scheduler_factory.SchedulerFactory()
 scheduler = model_factory.create_scheduler_model(
     scheduling_model, 
-    events, 
+    merged_events, 
     config_obj
 )
 
@@ -90,17 +139,21 @@ status = scheduler.solve()
 if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
     scheduler.events.sort(key=lambda e: e.start_time)
     for e in scheduler.events:
+        start_dt_local = (config_start_dt + timedelta(minutes=e.start_time)).astimezone(user_tz)
+        end_dt_local = (config_start_dt + timedelta(minutes=e.end_time)).astimezone(user_tz)
         print(f"{e.name} - {e.id}")
-        print(f"    start: {minute_to_datetime(config_obj.start_datetime, e.start_time)}",
-              f" | end: {minute_to_datetime(config_obj.start_datetime, e.end_time)}",
-              f" | duration: {e.duration} minutes")
+        print(
+            f"    start: {start_dt_local.isoformat()}",
+            f" | end: {end_dt_local.isoformat()}",
+            f" | duration: {e.duration} minutes"
+        )
     
     print(f"\n{'=' * 50}\nTIMELINE: ")
     EventTimeline.display(scheduler.events, config_obj)
     print()
 
     # serialize to json
-    write_event_file(f"tests/outputs/{event_file.split('/')[-1]}", scheduler.events)
+    write_event_file(f"tests/outputs/{event_file.split('/')[-1] if event_file else 'SCHEDULE'}", scheduler.events)
 
     #
     # Write events to google calendar API
@@ -109,7 +162,6 @@ if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
     print("Write this schedule to your Google Calendar?")
     write_to_gcal = input("(y/n): ").strip().lower() == 'y'
     if write_to_gcal:
-        gcal_io = GoogleCalendarIO()
         # convert model events to google cal events
 
         base_start_dt: datetime = cli_input_utils.user_input_datetime(config_obj)
