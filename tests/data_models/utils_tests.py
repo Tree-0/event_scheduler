@@ -2,6 +2,7 @@ import datetime
 import pytest
 
 from data_models.utils import (
+    parse_iso_datetime,
     datetime_to_block,
     datetime_to_minute,
     block_to_datetime,
@@ -17,8 +18,17 @@ from data_models.event import Event
 from data_models.window import Window
 from data_models.gcal import GoogleCalendarEvent
 
-START = "20260101-00:00"
+START = "2026-01-01T00:00:00+00:00"
 BLOCK = 15
+
+
+def test_parse_iso_datetime_requires_offset():
+    with pytest.raises(ValueError):
+        _ = parse_iso_datetime("2026-01-01T00:00:00")
+
+    dt = parse_iso_datetime("2026-01-01T00:00:00Z")
+    assert dt.tzinfo is not None
+    assert dt.isoformat() == "2026-01-01T00:00:00+00:00"
 
 @pytest.mark.parametrize(
     "minutes, block_size, expected",
@@ -47,10 +57,10 @@ def test_duration_to_blocks(duration, block_size, expected):
 @pytest.mark.parametrize(
     "target, expected_minutes",
     [
-        ("20260101-00:00", 0),
-        ("20260101-01:00", 60),
-        ("20260102-00:00", 24 * 60),
-        ("20251231-23:45", -15),  # target before start
+        ("2026-01-01T00:00:00+00:00", 0),
+        ("2026-01-01T01:00:00+00:00", 60),
+        ("2026-01-02T00:00:00+00:00", 24 * 60),
+        ("2025-12-31T23:45:00+00:00", -15),  # target before start
     ],
 )
 def test_datetime_to_minute(target, expected_minutes):
@@ -60,10 +70,10 @@ def test_datetime_to_minute(target, expected_minutes):
 @pytest.mark.parametrize(
     "target, expected_block",
     [
-        ("20260101-00:00", 0),
-        ("20260101-01:00", 4),
-        ("20260102-00:00", 96),
-        ("20251231-23:45", -1),
+        ("2026-01-01T00:00:00+00:00", 0),
+        ("2026-01-01T01:00:00+00:00", 4),
+        ("2026-01-02T00:00:00+00:00", 96),
+        ("2025-12-31T23:45:00+00:00", -1),
     ],
 )
 def test_datetime_to_block(target, expected_block):
@@ -73,10 +83,10 @@ def test_datetime_to_block(target, expected_block):
 @pytest.mark.parametrize(
     "minute_offset, expected_dt",
     [
-        (0, "20260101-00:00"),
-        (60, "20260101-01:00"),
-        (24 * 60, "20260102-00:00"),
-        (-15, "20251231-23:45"),
+        (0, "2026-01-01T00:00:00+00:00"),
+        (60, "2026-01-01T01:00:00+00:00"),
+        (24 * 60, "2026-01-02T00:00:00+00:00"),
+        (-15, "2025-12-31T23:45:00+00:00"),
     ],
 )
 def test_minute_to_datetime(minute_offset, expected_dt):
@@ -86,10 +96,10 @@ def test_minute_to_datetime(minute_offset, expected_dt):
 @pytest.mark.parametrize(
     "block_index, expected_dt",
     [
-        (0, "20260101-00:00"),
-        (4, "20260101-01:00"),
-        (96, "20260102-00:00"),
-        (-1, "20251231-23:45"),
+        (0, "2026-01-01T00:00:00+00:00"),
+        (4, "2026-01-01T01:00:00+00:00"),
+        (96, "2026-01-02T00:00:00+00:00"),
+        (-1, "2025-12-31T23:45:00+00:00"),
     ],
 )
 def test_block_to_datetime(block_index, expected_dt):
@@ -99,9 +109,9 @@ def test_block_to_datetime(block_index, expected_dt):
 @pytest.mark.parametrize(
     "dt",
     [
-        "20260101-00:00",
-        "20260101-05:30",
-        "20260102-12:15",
+        "20260101T00:00+00:00",
+        "20260101T05:30+00:00",
+        "20260102T12:15-06:00",
     ],
 )
 def test_round_trip_datetime_to_block_and_back(dt):
@@ -111,7 +121,7 @@ def test_round_trip_datetime_to_block_and_back(dt):
 
 
 def test_block_to_datetime_from_base_naive_to_aware():
-    base = datetime.datetime(2026, 1, 1, 0, 0)  # naive
+    base = datetime.datetime(2026, 1, 1, 0, 0)  # naive    
     dt = block_to_datetime_from_base(base, block_size_min=15, block=4)
     assert dt.tzinfo is not None
     assert dt.isoformat() == "2026-01-01T01:00:00+00:00"
@@ -119,8 +129,11 @@ def test_block_to_datetime_from_base_naive_to_aware():
 
 def test_block_to_datetime_from_base_aware():
     base = datetime.datetime(2026, 1, 1, 0, 0, tzinfo=datetime.timezone(datetime.timedelta(hours=-6)))  # CST
+    # This will convert to UTC --> add 6 hours
     dt = block_to_datetime_from_base(base, block_size_min=30, block=2)
-    assert dt.isoformat() == "2026-01-01T01:00:00-06:00"
+    assert dt.isoformat() == "2026-01-01T07:00:00+00:00"
+    # Convert back to aware timezone when sending to IO
+    # Google Calendar has a specified time zone that should automatically do conversions
 
 
 def test_event_to_gcal_event_success():

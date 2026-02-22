@@ -29,10 +29,11 @@ def read_event_file(jfile: str, skip_invalid: bool=True) -> List[event.Event]:
                     duration=event_json["duration"],
                     schedulable_windows=win_list,
                 )
-            except: # if we have an invalid event
+            except Exception as e: # if we have an invalid event
                 if skip_invalid:
                     # TODO: replace with logger instead?
                     print(f"WARNING: Invalid event while reading event {event_json['id']}, skipping event")
+                    # print(f"    ERROR: {e}")
                     continue
                 else:
                     raise
