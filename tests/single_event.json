@@ -1,0 +1,12 @@
+[
+    {
+        "name": "TEST",
+        "id": "1",
+        "duration": 120,
+        "windows": [
+            { "start": 420, "end": 540},
+            { "start": 780, "end": 1200}
+        ],
+        "note": "windows are 7-9am and 1-6pm"
+    }
+]

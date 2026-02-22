@@ -1,39 +1,39 @@
 [
     {
-        "name": "meal_prep_1",
-        "id": "meal_prep_1",
-        "duration": "60",
+        "name": "morning_run",
+        "id": "morning_run_1",
+        "duration": 45,
         "windows": [
-            {"start": 128, "end": 160},
-            {"start": 176, "end": 184}
+            {"start": 0, "end": 120},
+            {"start": 360, "end": 480},
+            {"start": 1440, "end": 1560}
         ]
     },
     {
-        "name": "meal_prep_2",
-        "id": "meal_prep_2_chicken",
-        "duration": "75",
+        "name": "work_session",
+        "id": "work_session_1",
+        "duration": 120,
         "windows": [
-            {"start": 128, "end": 160},
-            {"start": 176, "end": 184},
-            {"start": 224, "end": 288}
+            {"start": 480, "end": 900},
+            {"start": 1920, "end": 2340}
         ]
     },
     {
-        "name": "gym_1",
-        "id": "gym_friday"
+        "name": "lunch_break",
+        "id": "lunch_break_1",
+        "duration": 60,
+        "windows": [
+            {"start": 720, "end": 840},
+            {"start": 2160, "end": 2280}
+        ]
     },
     {
-        "name": "gym_2",
-        "id": "gym_saturday"
-    },
-    {
-        "name": "gym_3",
-        "id": "gym_sunday"
-    },
-    {
-        "name": "interview_prep_1"
-    },
-    {
-        "name": "interview_prep_2"
+        "name": "evening_relax",
+        "id": "evening_relax_1",
+        "duration": 90,
+        "windows": [
+            {"start": 1200, "end": 1380},
+            {"start": 2640, "end": 2880}
+        ]
     }
 ]

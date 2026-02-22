@@ -25,7 +25,7 @@ from data_models.utils import (
 import cli_input_utils
 
 #
-# Read config file
+# (0) Read config file
 #
 
 print("(optional) enter config file: ")
@@ -41,7 +41,7 @@ config_obj.load_config(config_file)
 print(config_obj)
 
 #
-# read events from file
+# (1) read events from file
 #
 
 events: List[event.Event] = []
@@ -61,7 +61,7 @@ for ev in events:
 print()
 
 #
-# manually enter additional events
+# (2) manually enter additional events
 #
 
 # TODO: are these coerced into UTC properly?
@@ -70,10 +70,14 @@ user_input_events = cli_input_utils.user_input_events(
 )
 events.extend(user_input_events)
 
+# shallow copy of the new events we are trying to schedule on the calendar
+events_to_schedule = events.copy()
+
 #
-# Read Google Calendar events that exist in the window we are scheduling.
+# (3) Read Google Calendar events that exist in the window we are scheduling.
 # Currently we read a bunch of events after the start_date
 # Treat these events as fixed: i.e. other events must not overlap with these
+#
 
 gcal_io = GoogleCalendarIO()
 
@@ -81,6 +85,8 @@ gcal_io = GoogleCalendarIO()
 user_tz = ZoneInfo(config_obj.user_timezone)
 
 # get config starting date, or set to today if none provided
+# TODO: this is a timezone aware datetime, probably need to amke sure it is consistent
+# with the user_tz in config -> otherwise coerce it into the user's timezone
 config_start_dt = config_obj.start_datetime
 
 if config_start_dt is None:
@@ -94,6 +100,7 @@ config_before_dt = block_to_datetime(
     config_obj.num_blocks
 )
 
+# get the events from the google calendar that we need to schedule around
 fixed_gcal_events = gcal_io.get_calendar_events_objects(
     config_start_dt,
     config_before_dt,
@@ -101,10 +108,12 @@ fixed_gcal_events = gcal_io.get_calendar_events_objects(
     limit=20
 )
 
+# convert gcal to model events we will send to scheduler
 modeled_gcal_events = [gcal_event_to_model_event(gcal_ev, config_start_dt) for gcal_ev in fixed_gcal_events]
-# convert gcal to model events
 events.extend(modeled_gcal_events)
 
+# remove any duplicates and flag immovable but overlapping events...
+# I realize "flag" is vague, final behavior tbd
 events = deduplicate_events(events)
 warn_overlapping_fixed_events(events)
 merged_events = merge_overlapping_fixed_events(events)
@@ -120,7 +129,7 @@ for e in merged_events:
 scheduling_model = config_obj.scheduling_model
 if not scheduling_model:
     print("enter scheduling model type: ")
-    # TODO: global list of scheduling model names
+    # TODO: global list of scheduling model names, validate model name
     scheduling_model = input().strip()
 
 model_factory = scheduler_factory.SchedulerFactory()
@@ -164,19 +173,16 @@ if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
     if write_to_gcal:
         # convert model events to google cal events
 
-        base_start_dt: datetime = cli_input_utils.user_input_datetime(config_obj)
+        #base_start_dt: datetime = cli_input_utils.user_input_datetime(config_obj)
+        base_start_dt: datetime = config_start_dt
 
-        upload_tz = config_obj.user_timezone or "UTC"
-        try:
-            # validate TZ early; ZoneInfo errors if invalid
-            from zoneinfo import ZoneInfo
-            ZoneInfo(upload_tz)
-        except Exception:
-            print("Configured timezone invalid; defaulting upload timezone to UTC.")
-            upload_tz = "UTC"
+        upload_tz = user_tz.key
 
         gcal_events = []
-        for e in scheduler.events:
+        # scheduler.solve() will have modified the events by setting their start and end times.
+        # Only writes events to the gcal that we did not already pull from the gcal
+        for e in events_to_schedule:
+            
             gcal_event = event_to_gcal_event(e, base_start_dt, e.description)
             print(gcal_event)
             gcal_events.append(gcal_event)

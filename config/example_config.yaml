@@ -7,18 +7,19 @@ block_size: 15
 
 # number of time blocks starting from current time
 # (or from a specified date?)
-# 672 = 1 week of time blocks
-num_blocks: 672 
+# 672 = 1 week of 15 minute time blocks
+# 192 = 2 days of 15 minute time blocks
+num_blocks: 192
 
-# start dates/times to associate with block 0 in the window 
-# 'YYYYMMDD-HH:MM'
-start_datetime: 20260101-00:00
+# start datetime for block 0 (ISO 8601 with offset)
+# example below is midnight ~~US Central~~ UTC?
+start_datetime: 2026-02-21T00:00:00-06:00
 
 # IANA timezone name used for interpreting start_datetime and uploads
 user_timezone: America/Chicago
 
 # json file of events to read in
-event_file: tests/events.json
+event_file: tests/weekend.json
 
 # optimization model to use
 scheduling_model: makespan

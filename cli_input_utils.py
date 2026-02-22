@@ -1,5 +1,3 @@
-# will need to refactor
-
 # utility functions for getting a user input and returning a value for the cli
 
 import datetime
@@ -8,41 +6,6 @@ from zoneinfo import ZoneInfo
 
 from data_models.utils import parse_iso_datetime
 from data_models import event, window
-
-
-def user_input_datetime(config_obj=None) -> datetime.datetime:
-    # allow user to pick the base datetime that represents minute 0
-    # default: config start_datetime -> now in configured TZ if none/invalid
-    tz_name = getattr(config_obj, "user_timezone", "UTC") if config_obj else "UTC"
-
-    base_input = input(
-        "Enter base datetime for upload (ISO 8601 with offset, e.g., 2026-01-01T00:00:00-06:00). "
-        "Leave blank to use config start_datetime or now (configured TZ): "
-    ).strip()
-
-    base_start_dt = None
-    if base_input:
-        try:
-            base_start_dt = parse_iso_datetime(base_input).astimezone(ZoneInfo(tz_name))
-        except Exception:
-            print("Invalid datetime; expected ISO 8601 with timezone offset. Using fallback.")
-
-    if base_start_dt is None and config_obj and config_obj.start_datetime:
-        try:
-            # try to use start_datetime from config
-            base_start_dt = parse_iso_datetime(config_obj.start_datetime).astimezone(ZoneInfo(tz_name))
-        except Exception:
-            print("Config start_datetime invalid; using current time in configured TZ.")
-
-    if base_start_dt is None:
-        try:
-            base_start_dt = datetime.datetime.now(ZoneInfo(tz_name))
-        except Exception:
-            base_start_dt = datetime.datetime.now(datetime.timezone.utc)
-            print("Configured timezone invalid; defaulting to UTC.")
-    
-    return base_start_dt
-
 
 def user_input_events(num_blocks: int, block_size: int):
     '''

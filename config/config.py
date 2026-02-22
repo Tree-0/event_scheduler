@@ -2,7 +2,8 @@
 
 import yaml
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 @dataclass
 class Config:
@@ -11,7 +12,10 @@ class Config:
     event_file: str = ''
     scheduling_model: str = ''
     json_skip_invalid_events: bool = False
-    start_datetime: str = ''
+    
+    # python yaml lib parses IS8601 strings directly into datetimes
+    start_datetime: datetime = None
+    
     user_timezone: str = 'UTC'
     
     def load_config(self, config_file: str):
