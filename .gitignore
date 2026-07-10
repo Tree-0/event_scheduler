@@ -2,9 +2,11 @@
 __pycache__
 */__pycache__
 .venv
+*.egg-info/
+.pytest_cache/
 
-# ignore test outputs
-tests/outputs/*
+# Generated solver output
+outputs/
 
 # personal change log to track progress
 DEVLOG.md

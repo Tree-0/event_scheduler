@@ -1,33 +1,10 @@
-# Example config file
+# Paths are resolved relative to this YAML file.
+request_file: ../examples/weekend.request.json
+result_file: ../outputs/weekend.result.json
+model: makespan
+display_timezone: America/Chicago
 
-# size in minutes
-# smaller blocks = more computations
-# larger blocks = less granularity in schedule
-block_size: 15 
-
-# number of time blocks starting from current time
-# (or from a specified date?)
-# 672 = 1 week of 15 minute time blocks
-# 192 = 2 days of 15 minute time blocks
-num_blocks: 192
-
-# start datetime for block 0 (ISO 8601 with offset)
-# example below is midnight ~~US Central~~ UTC?
-start_datetime: 2026-02-21T00:00:00-06:00
-
-# IANA timezone name used for interpreting start_datetime and uploads
-user_timezone: America/Chicago
-
-# json file of events to read in
-event_file: tests/weekend.json
-
-# optimization model to use
-scheduling_model: makespan
-# possible values:
-# makespan
-# 
-
-# reading/writing json config
-json_parsing:
-  # Log when invalid events occur in json and skip them instead of erroring
-  read_skip_invalid_events: true
+calendar:
+  calendar_id: primary
+  credentials_file: client_secret.json
+  token_file: token.json
