@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from event_scheduler.domain import format_utc, parse_utc
+from event_scheduler.domain import format_utc, parse_timestamp
 from event_scheduler.json_io import request_from_dict, request_to_dict
 
 
@@ -28,14 +28,22 @@ def payload():
     }
 
 
-def test_utc_contract_rejects_offsets_and_naive_values():
-    assert parse_utc("2026-01-01T00:00:00Z") == datetime(2026, 1, 1, tzinfo=timezone.utc)
-    with pytest.raises(ValueError, match="ending in 'Z'"):
-        parse_utc("2026-01-01T00:00:00+00:00")
-    with pytest.raises(ValueError, match="ending in 'Z'"):
-        parse_utc("2026-01-01T00:00:00")
+def test_timestamp_contract_accepts_offsets_and_rejects_naive_values():
+    expected = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    assert parse_timestamp("2026-01-01T00:00:00Z") == expected
+    assert parse_timestamp("2025-12-31T18:00:00-06:00") == expected
+    assert parse_timestamp("2026-01-01T00:00:00+00:00") == expected
+    with pytest.raises(ValueError, match="UTC offset"):
+        parse_timestamp("2026-01-01T00:00:00")
     with pytest.raises(ValueError, match="naive"):
         format_utc(datetime(2026, 1, 1))
+
+
+def test_request_with_offsets_is_normalized_to_utc():
+    raw = payload()
+    raw["horizon"]["start"] = "2025-12-31T18:00:00-06:00"
+    normalized = request_to_dict(request_from_dict(raw))
+    assert normalized["horizon"]["start"] == "2026-01-01T00:00:00Z"
 
 
 def test_request_round_trip():

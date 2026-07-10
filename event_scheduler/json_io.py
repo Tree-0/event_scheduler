@@ -15,7 +15,7 @@ from event_scheduler.domain import (
     ScheduledEvent,
     TimeWindow,
     format_utc,
-    parse_utc,
+    parse_timestamp,
 )
 
 
@@ -41,8 +41,8 @@ def request_from_dict(payload: dict[str, Any]) -> ScheduleRequest:
     if payload.get("schema_version") != SCHEMA_VERSION:
         raise ValueError(f"schema_version must be {SCHEMA_VERSION}")
     horizon = _object(payload.get("horizon"), "horizon")
-    start = parse_utc(horizon.get("start"), "horizon.start")
-    end = parse_utc(horizon.get("end"), "horizon.end")
+    start = parse_timestamp(horizon.get("start"), "horizon.start")
+    end = parse_timestamp(horizon.get("end"), "horizon.end")
     block_minutes = horizon.get("block_minutes")
     if not isinstance(block_minutes, int) or isinstance(block_minutes, bool):
         raise ValueError("horizon.block_minutes must be an integer")
@@ -59,8 +59,8 @@ def request_from_dict(payload: dict[str, Any]) -> ScheduleRequest:
             prefix = f"events[{index}].windows[{window_index}]"
             windows.append(
                 TimeWindow(
-                    parse_utc(window.get("start"), f"{prefix}.start"),
-                    parse_utc(window.get("end"), f"{prefix}.end"),
+                    parse_timestamp(window.get("start"), f"{prefix}.start"),
+                    parse_timestamp(window.get("end"), f"{prefix}.end"),
                 )
             )
         duration = raw.get("duration_minutes")
@@ -86,8 +86,8 @@ def request_from_dict(payload: dict[str, Any]) -> ScheduleRequest:
             BusyInterval(
                 id=_string(raw.get("id"), f"{prefix}.id"),
                 title=_string(raw.get("title", ""), f"{prefix}.title"),
-                start=parse_utc(raw.get("start"), f"{prefix}.start"),
-                end=parse_utc(raw.get("end"), f"{prefix}.end"),
+                start=parse_timestamp(raw.get("start"), f"{prefix}.start"),
+                end=parse_timestamp(raw.get("end"), f"{prefix}.end"),
             )
         )
     return ScheduleRequest(start, end, block_minutes, tuple(events), tuple(busy))
@@ -145,8 +145,12 @@ def result_from_dict(payload: dict[str, Any]) -> ScheduleResult:
                 title=_string(raw.get("title"), f"{prefix}.title"),
                 description=_string(raw.get("description", ""), f"{prefix}.description"),
                 duration_minutes=duration,
-                scheduled_start=parse_utc(raw.get("scheduled_start"), f"{prefix}.scheduled_start"),
-                scheduled_end=parse_utc(raw.get("scheduled_end"), f"{prefix}.scheduled_end"),
+                scheduled_start=parse_timestamp(
+                    raw.get("scheduled_start"), f"{prefix}.scheduled_start"
+                ),
+                scheduled_end=parse_timestamp(
+                    raw.get("scheduled_end"), f"{prefix}.scheduled_end"
+                ),
             )
         )
     objective = _object(payload.get("objective", {}), "objective")

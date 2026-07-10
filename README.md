@@ -44,7 +44,7 @@ Exit status is `0` for a schedule, `2` for an infeasible request, and `1` for in
 
 ## JSON boundary
 
-Request and result documents use `schema_version: 1`. Every timestamp must be UTC ISO 8601 ending in `Z`; local timezones are presentation-only.
+Request and result documents use `schema_version: 1`. Input timestamps must be timezone-aware ISO 8601 values, using either `Z` or an explicit UTC offset such as `-06:00`. They are normalized internally, and serialized output always uses UTC with a trailing `Z`.
 
 A request contains:
 

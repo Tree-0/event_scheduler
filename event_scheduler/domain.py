@@ -10,16 +10,16 @@ SCHEMA_VERSION = 1
 ScheduleStatus = Literal["optimal", "feasible", "infeasible", "error"]
 
 
-def parse_utc(value: str, field_name: str = "timestamp") -> datetime:
-    """Parse the canonical JSON timestamp format (UTC with a trailing ``Z``)."""
-    if not isinstance(value, str) or not value.endswith("Z"):
-        raise ValueError(f"{field_name} must be a UTC ISO 8601 timestamp ending in 'Z'")
+def parse_timestamp(value: str, field_name: str = "timestamp") -> datetime:
+    """Parse an aware ISO 8601 timestamp and normalize it to UTC."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be an ISO 8601 timestamp")
     try:
-        parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"{field_name} is not a valid ISO 8601 timestamp") from exc
-    if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
-        raise ValueError(f"{field_name} must be in UTC")
+    if parsed.tzinfo is None:
+        raise ValueError(f"{field_name} must include a UTC offset")
     return parsed.astimezone(timezone.utc)
 
 
