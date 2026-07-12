@@ -16,6 +16,7 @@ class Scheduler(Protocol):
 def create_scheduler(model: str) -> Scheduler:
     if model.strip().lower() == MakespanScheduler.name:
         return MakespanScheduler()
+    # TODO: add more models here
     raise ValueError(f"unknown scheduling model: {model}")
 
 
