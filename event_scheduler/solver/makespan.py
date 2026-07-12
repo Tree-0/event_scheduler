@@ -1,18 +1,13 @@
-"""Pure solver API and OR-Tools makespan implementation."""
+"""Makespan scheduling model implementation."""
 
 from __future__ import annotations
 
 import math
 from datetime import timedelta
-from typing import Protocol
 
 from ortools.sat.python import cp_model
 
 from event_scheduler.domain import ScheduleRequest, ScheduleResult, ScheduledEvent
-
-
-class Scheduler(Protocol):
-    def solve(self, request: ScheduleRequest) -> ScheduleResult: ...
 
 
 def _minutes(value, origin) -> float:
@@ -110,9 +105,3 @@ class MakespanScheduler:
             tuple(scheduled),
             objective={"makespan_reserved_minutes": solver.Value(last_complete) * block},
         )
-
-
-def create_scheduler(model: str) -> Scheduler:
-    if model.strip().lower() == MakespanScheduler.name:
-        return MakespanScheduler()
-    raise ValueError(f"unknown scheduling model: {model}")

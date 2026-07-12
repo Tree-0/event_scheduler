@@ -56,9 +56,9 @@ See [`examples/weekend.request.json`](examples/weekend.request.json) for a compl
 
 ## Google Calendar workflow
 
-Place a Google OAuth desktop-client secret at the location configured by `calendar.credentials_file`. Tokens are created at `calendar.token_file` only when a Calendar command is run.
+Place a Google OAuth desktop-client secret at the location (Retrieved from Google Cloud Console) at the config-specified location `calendar.credentials_file`. Tokens are created at `calendar.token_file` only when a Calendar command is run.
 
-Use explicit stages so every intermediate document is inspectable:
+Every stage of the import/solve/export sequence can be inspected by documents resulting from the following commands run in series:
 
 ```bash
 event-scheduler calendar-import \
@@ -72,6 +72,8 @@ event-scheduler solve \
 event-scheduler calendar-export \
   --config config/example_config.yaml
 ```
+
+To export a specific JSON file, add `--input` and point it at the file you want to send to Calendar.
 
 Import adds timed Calendar events as busy intervals and never overwrites its input. All-day events are skipped with a diagnostic. Export previews every insertion and asks for confirmation; `--yes` is available for deliberate automation.
 
@@ -93,7 +95,7 @@ YAML runtime config ──> JSON request ──> pure Scheduler ──> JSON res
 ```
 
 - `event_scheduler/domain.py` defines immutable request and result contracts.
-- `event_scheduler/solver.py` contains the solver protocol and makespan model.
+- `event_scheduler/solver/` contains the solver protocol and model implementations.
 - `event_scheduler/json_io.py` owns the versioned exchange format.
 - `event_scheduler/google_calendar.py` owns optional Google API behavior.
 - `event_scheduler/cli.py` orchestrates commands without putting I/O in the solver.
