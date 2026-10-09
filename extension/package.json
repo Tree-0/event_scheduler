@@ -1,0 +1,27 @@
+{
+  "name": "calendar-window-scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build && vite build --config vite.content.config.ts",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "extension:id": "node scripts/extension-id.mjs",
+    "check": "npm run test && npm run build && npm run test:browser"
+  },
+  "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
+    "or-tools-wasm": "1.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/chrome": "0.1.36",
+    "@types/node": "24.3.0",
+    "happy-dom": "20.14.6",
+    "protobufjs": "8.8.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

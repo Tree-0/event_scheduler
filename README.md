@@ -4,6 +4,8 @@ An offline-first event scheduling experiment built with Python and Google OR-Too
 
 The scheduling core does not require Google credentials or network access. Google Calendar is an optional input/output adapter around the same versioned JSON interface.
 
+The [Chrome extension prototype](extension/README.md) adds availability drawing directly on Google Calendar, a details panel, multiple scheduling resources, and a bundled browser solver. Its setup and tester checklist are separate from the Python command-line workflow below.
+
 ## Install
 
 Python 3.11 or 3.12 is recommended.
