@@ -1,3 +1,4 @@
+import type { ShortcutAction } from './shortcuts';
 export const ATTENTION = 'attention';
 export const MINUTE = 60_000;
 export interface TimeWindow { start: string; end: string }
@@ -37,6 +38,7 @@ export interface AccountState {
 }
 export interface CalendarView { dates: string[]; timeZone?: string; supported: boolean; reason?: string }
 export type PanelMessage =
+  | { type: 'shortcut'; action: ShortcutAction }
   | { type: 'view'; view: CalendarView }
   | { type: 'window'; draftId: string; window: TimeWindow; index?: number }
   | { type: 'delete-window'; draftId: string; index: number }
@@ -44,4 +46,5 @@ export type PanelMessage =
 export interface OverlayState {
   type: 'overlay'; draftId?: string; drawing: boolean; timeZone: string; timezoneConfirmed: boolean;
   windows: TimeWindow[]; placements: Placement[];
+  focusCalendar?: boolean;
 }

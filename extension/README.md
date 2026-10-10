@@ -22,6 +22,17 @@ Click **Flexible event**, enter a title and duration (30 minutes by default), an
 
 If drawing is disabled, read the explanation below its button. The adapter automatically rechecks text, visibility, and layout changes during Calendar navigation. **Recheck Calendar view** reconnects the page adapter and requests a fresh measurement. Confirm the timezone when prompted; unsupported views stay disabled.
 
+With the extension panel open and connected, these shortcuts work in both Google Calendar and the panel (use **Option** for **Alt** on Mac):
+
+| Shortcut | Action |
+| --- | --- |
+| Alt+Shift+N | Create a draft and focus its title |
+| Alt+Shift+D | Toggle drawing for the current draft |
+| Alt+Shift+↑ / ↓ | Select the previous / next pending draft, wrapping at the ends |
+| Escape | Finish drawing, or cancel the current drag |
+
+Use Tab to move through event fields. Draft edits save automatically before switching. Shortcut hints also appear above the draft list; shortcuts respect the same account, view, timezone, and operation locks as the buttons. Holding a shortcut does not repeat its action, and ordinary typing is unaffected.
+
 The selected draft's windows are teal. **Schedule selected drafts** fetches fresh commitments across every selected draft's availability, then minimizes the last completion time. Starts use a stable five-minute UTC grid and durations retain their exact minutes. A task must fit entirely inside one window; it is never split or silently omitted. Preview placements appear in amber and in the panel. **Apply proposal to Calendar** checks conflicts and permissions again before creating events.
 
 Existing events are visible on Calendar and in the panel agenda. Hiding a calendar's agenda does not remove its conflicts. **Use this calendar** controls whether it is queried; **Visual only** displays it without reserving resources. **Block selected resources** lets a personal calendar reserve attention and an equipment calendar reserve a machine. Busy all-day dates and recurring occurrences are supported. Ordinary events marked Available or declined do not block.
@@ -47,12 +58,13 @@ npm run test:browser
 
 Unit tests run actual CP-SAT WASM under Node, independently enumerate small optima, test Calendar API responses and write recovery, and check grid geometry with DOM fixtures. Static protobuf codecs are compared with upstream serialization while runtime code generation is disabled. Browser tests load the packaged extension in temporary Chrome profiles, verify local WASM solving and cancellation under its real CSP/isolation settings, and exercise account connection, drawing, and recovery against a locally mocked Calendar page/API. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to a Chrome for Testing executable to use an existing installation.
 
-Verification: 44 unit tests, the build, and both packaged Chrome browser tests passed. Signed-in Google Calendar OAuth, live page layouts, and actual Calendar writes still need the acceptance pass below; mocked layouts cannot establish compatibility with all of Google's current live markup.
+Verification: 48 unit tests, the build, and both packaged Chrome browser tests passed, including keyboard creation, title focus, Tab navigation, drawing toggles, and switching drafts. Signed-in Google Calendar OAuth, live page layouts, and actual Calendar writes still need the acceptance pass below; mocked layouts cannot establish compatibility with all of Google's current live markup.
 
 Tester acceptance checklist:
 
 - Connect the intended account; select both personal and equipment calendars.
 - Draw, resize, delete, and duplicate windows in day/week views; scroll and navigate weeks. Confirm native events are not created while painting and resume working afterward.
+- Create a draft with Alt/Option+Shift+N, tab through its details, toggle drawing with Alt/Option+Shift+D, and switch pending drafts with Alt/Option+Shift+↑/↓. Check that titles and windows survive switching.
 - Check that unsupported layouts disable drawing. Check timezone alignment, especially a DST boundary. Missing/repeated wall times are rejected rather than silently shifted.
 - Schedule homework alongside laundry; verify two laundry tasks sharing a machine do not overlap.
 - Verify a calendar set to visual only can be overlapped, while hidden blocking calendars still constrain scheduling.

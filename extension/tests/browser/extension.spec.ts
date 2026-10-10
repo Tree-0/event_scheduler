@@ -80,18 +80,34 @@ test('packaged panel connects and drawing recovers from transient Calendar layou
       // This tab exercises the panel document that normally lives in Chrome's
       // side panel, where the selected tab would remain the Calendar webpage.
       chrome.tabs.query = (() => query({ url: 'https://calendar.google.com/*' })) as typeof chrome.tabs.query;
+      const get = chrome.tabs.get.bind(chrome.tabs);
+      chrome.tabs.get = (async (tabId: number) => {
+        const tab = await get(tabId);
+        return tab.url?.startsWith('chrome-extension://') ? (await query({ url: 'https://calendar.google.com/*' }))[0] : tab;
+      }) as typeof chrome.tabs.get;
     });
     await panel.goto(`chrome-extension://${id}/panel.html`);
     await panel.getByRole('button', { name: 'Connect Google Calendar' }).click();
     await expect(panel.getByText('browser-check@example.invalid', { exact: true })).toBeVisible();
-    await panel.getByRole('button', { name: '+ Flexible event', exact: true }).click();
+    await calendar.keyboard.press('Alt+Shift+N');
+    const title = panel.locator('[data-focus-key="Title"]');
+    await expect(title).toBeFocused();
+    await title.fill('First keyboard draft');
+    await title.press('Tab');
+    await expect(panel.locator('[data-focus-key="Duration · minutes"]')).toBeFocused();
     const draw = panel.getByRole('button', { name: 'Draw availability on Calendar', exact: true });
     await expect(draw).toBeEnabled();
-    await draw.click();
+    await calendar.keyboard.press('Alt+Shift+D');
+    await expect(panel.getByRole('button', { name: 'Finish drawing', exact: true })).toBeVisible();
     await calendar.mouse.move(160, 170); await calendar.mouse.down();
     await calendar.mouse.move(160, 230); await calendar.mouse.up();
     await expect(panel.locator('.window-list .row')).toHaveCount(1);
-    await panel.getByRole('button', { name: 'Finish drawing', exact: true }).click();
+    await calendar.keyboard.press('Alt+Shift+D');
+    await expect(draw).toBeVisible();
+    await calendar.keyboard.press('Alt+Shift+N');
+    await expect(title).toBeFocused(); await title.fill('Second keyboard draft');
+    await title.press('Alt+Shift+ArrowUp'); await expect(title).toHaveValue('First keyboard draft');
+    await calendar.keyboard.press('Alt+Shift+ArrowDown'); await expect(title).toHaveValue('Second keyboard draft');
     await calendar.evaluate(() => document.querySelector('#calendar-grid')!.classList.add('loading'));
     await expect(draw).toBeDisabled();
     await panel.getByRole('button', { name: 'Recheck Calendar view', exact: true }).click();

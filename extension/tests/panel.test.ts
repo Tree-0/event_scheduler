@@ -10,6 +10,8 @@ let conflicts: Record<string, any>[];
 let inserted: Record<string, any>[];
 let outgoing: Record<string, any>[];
 let attach: ReturnType<typeof vi.fn>;
+let keyboardListeners: EventListener[];
+let listenerSpy: ReturnType<typeof vi.spyOn>;
 function findButton(text: string): HTMLButtonElement {
   const found = [...document.querySelectorAll('button')].find(b => b.textContent === text);
   if (!found) throw new Error(`Button not found: ${text}`); return found;
@@ -21,6 +23,12 @@ function type(label: string, value: string) { const field = input(label); field.
 function send(message: PanelMessage) { received.forEach(fn => fn(message)); }
 beforeEach(async () => {
   vi.resetModules(); saved = {}; conflicts = []; inserted = []; outgoing = []; received = [];
+  keyboardListeners = [];
+  const listen = document.addEventListener.bind(document);
+  listenerSpy = vi.spyOn(document, 'addEventListener').mockImplementation((type, listener, options) => {
+    if (type === 'keydown' && typeof listener === 'function') keyboardListeners.push(listener);
+    listen(type, listener, options);
+  });
   document.body.innerHTML = '<div id="app"></div>';
   const noop = { addListener: () => {} };
   const port = { postMessage: (message: any) => outgoing.push(message), disconnect: () => {}, onDisconnect: noop, onMessage: { addListener: (fn: any) => received.push(fn) } };
@@ -42,7 +50,14 @@ beforeEach(async () => {
   await vi.waitFor(() => expect(document.body.textContent).toContain('alice@example.com'));
   send({ type: 'view', view: { supported: true, dates: ['2030-01-01'], timeZone: 'UTC' } });
 });
-afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); });
+afterEach(() => {
+  keyboardListeners.forEach(listener => document.removeEventListener('keydown', listener)); listenerSpy.mockRestore();
+  vi.unstubAllGlobals(); document.body.replaceChildren();
+});
+function hotkey(code: string, repeat = false) {
+  const event = new KeyboardEvent('keydown', { code, altKey: true, shiftKey: true, repeat, bubbles: true, cancelable: true });
+  (document.activeElement ?? document).dispatchEvent(event); return event;
+}
 async function createDraft() {
   await vi.waitFor(() => expect(findButton('+ Flexible event').disabled).toBe(false));
   findButton('+ Flexible event').click(); type('Title', 'Homework'); type('Duration · minutes', '30');
@@ -59,6 +74,45 @@ test('creates, autosaves, paints, duplicates, and marks drafts as background', a
   await vi.waitFor(() => expect(saved['account:alice@example.com'].drafts).toHaveLength(2));
   await vi.waitFor(() => expect(saved['account:alice@example.com'].drafts[1].resourceIds).toEqual([]));
   expect(saved['account:alice@example.com'].drafts[0].resourceIds).toEqual(['attention']);
+});
+test('keyboard creates focused drafts, toggles drawing, and cycles pending drafts without losing edits', async () => {
+  await vi.waitFor(() => expect(findButton('+ Flexible event').disabled).toBe(false));
+  expect(hotkey('KeyN').defaultPrevented).toBe(true);
+  expect(document.activeElement).toBe(input('Title'));
+  type('Title', 'First draft');
+  hotkey('KeyN', true);
+  await vi.waitFor(() => expect(saved['account:alice@example.com'].drafts).toHaveLength(1));
+  hotkey('KeyN'); type('Title', 'Second draft');
+  hotkey('ArrowUp'); expect(input('Title').value).toBe('First draft');
+  expect(document.activeElement).toBe(input('Title'));
+  hotkey('ArrowDown'); expect(input('Title').value).toBe('Second draft');
+  hotkey('ArrowDown'); expect(input('Title').value).toBe('First draft');
+  hotkey('KeyD'); expect(outgoing.at(-1)!.drawing).toBe(true); expect(outgoing.at(-1)!.focusCalendar).toBe(true);
+  hotkey('KeyD', true); expect(outgoing.at(-1)!.drawing).toBe(true);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect(outgoing.at(-1)!.drawing).toBe(false);
+  await vi.waitFor(() => expect(saved['account:alice@example.com'].drafts.map((d: any) => d.title)).toEqual(['First draft', 'Second draft']));
+});
+test('Calendar shortcuts share button guards and respect unsupported views and active work', async () => {
+  await createDraft();
+  send({ type: 'shortcut', action: 'new-draft' });
+  await vi.waitFor(() => expect(saved['account:alice@example.com'].drafts).toHaveLength(2));
+  expect(document.activeElement).toBe(input('Title'));
+  send({ type: 'view', view: { supported: false, dates: [], reason: 'Unsupported view' } });
+  send({ type: 'shortcut', action: 'toggle-drawing' }); expect(outgoing.at(-1)!.drawing).toBe(false);
+  expect(document.querySelector('[role=alert]')?.textContent).toBe('Unsupported view');
+  send({ type: 'view', view: { supported: true, dates: ['2030-01-01'], timeZone: 'UTC' } });
+  send({ type: 'shortcut', action: 'previous-draft' });
+  // Exclude the empty draft so this Schedule reaches the asynchronous work phase.
+  findButton('Untitled draft · 30 min').click();
+  const includes = [...document.querySelectorAll<HTMLInputElement>('.draft-row input')];
+  includes[1].checked = false; includes[1].dispatchEvent(new Event('change'));
+  findButton('Schedule selected drafts').click();
+  send({ type: 'shortcut', action: 'new-draft' });
+  send({ type: 'shortcut', action: 'toggle-drawing' });
+  expect(outgoing.at(-1)!.drawing).toBe(false);
+  await vi.waitFor(() => expect(saved['account:alice@example.com'].drafts).toHaveLength(2));
+  await vi.waitFor(() => expect(findButton('Schedule selected drafts').disabled).toBe(false));
 });
 test('unsupported drawing exposes a recheck and enables drawing after the adapter recovers', async () => {
   await createDraft();

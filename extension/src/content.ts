@@ -1,6 +1,7 @@
 import { inspectGrid, gridPoint, type GridGeometry } from './grid';
 import { localInstant, localMinutes, dateStart, addDays, instant } from './time';
 import type { OverlayState, PanelMessage, TimeWindow } from './types';
+import { shortcutAction } from './shortcuts';
 
 const host = document.createElement('div');
 host.id = 'window-scheduler-overlay';
@@ -20,7 +21,11 @@ function send(message: PanelMessage) { try { port?.postMessage(message); } catch
 chrome.runtime.onConnect.addListener(p => {
   if (p.name !== 'calendar-panel') return;
   port?.disconnect(); port = p; lastView = '';
-  p.onMessage.addListener((message: OverlayState) => { if (message.type !== 'overlay') return; state = message; drag = undefined; render(); });
+  p.onMessage.addListener((message: OverlayState) => {
+    if (message.type !== 'overlay') return;
+    state = message; drag = undefined; render();
+    if (message.focusCalendar) { (document.activeElement as HTMLElement | null)?.blur(); window.focus(); }
+  });
   p.onDisconnect.addListener(() => { if (port === p) { port = undefined; state.drawing = false; drag = undefined; render(); } }); render();
 });
 function canDraw() { return geometry && (Boolean(geometry.view.timeZone) || state.timezoneConfirmed) && Boolean(state.draftId); }
@@ -87,6 +92,12 @@ document.addEventListener('pointerup', event => {
   if (window) send({ type: 'window', draftId: state.draftId!, window, index }); render();
 }, true);
 document.addEventListener('keydown', event => {
+  const action = shortcutAction(event);
+  if (action && port) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (!event.repeat) { drag = undefined; send({ type: 'shortcut', action }); }
+    return;
+  }
   if (event.key !== 'Escape' || !state.drawing) return; event.preventDefault(); event.stopImmediatePropagation();
   if (drag) { drag = undefined; render(); } else { state.drawing = false; send({ type: 'drawing-ended' }); render(); }
 }, true);

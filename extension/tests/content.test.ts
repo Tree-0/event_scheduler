@@ -17,6 +17,13 @@ test('view detection recovers after visibility classes and hour text change', as
     await import('../src/content');
     connect({ name: 'calendar-panel', postMessage: (message: PanelMessage) => messages.push(message), disconnect: () => {},
       onMessage: { addListener: () => {} }, onDisconnect: { addListener: () => {} } });
+    const count = messages.length;
+    const shortcut = new KeyboardEvent('keydown', { code: 'KeyN', altKey: true, shiftKey: true, cancelable: true });
+    document.dispatchEvent(shortcut);
+    expect(shortcut.defaultPrevented).toBe(true); expect(messages.at(-1)).toEqual({ type: 'shortcut', action: 'new-draft' });
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyN', altKey: true, shiftKey: true, repeat: true }));
+    expect(messages).toHaveLength(count + 1);
+    messages.pop();
     expect(messages.at(-1)).toMatchObject({ type: 'view', view: { supported: false } });
     inspect.mockReturnValue(geometry);
     document.querySelector('main')!.className = 'visible';

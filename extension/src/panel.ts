@@ -7,6 +7,7 @@ import { validateRequest, validatePlacements } from './constraints';
 import { addDays, dateStart, formatTime, inputInstant, localInput, rangeOf, validZone } from './time';
 import { createPreset, expandPreset } from './presets';
 import { applySchedule } from './apply';
+import { shortcutAction, type ShortcutAction } from './shortcuts';
 
 const root = document.querySelector('#app')!;
 const store = new AccountStore();
@@ -33,10 +34,55 @@ function button(text: string, fn: () => unknown, disabled = false, kind = 'secon
   const node = el('button', { type: 'button', class: kind }, text) as HTMLButtonElement; node.disabled = disabled;
   node.onclick = () => { try { const result = fn(); if (result instanceof Promise) result.catch(fail); } catch (error) { fail(error); } }; return node;
 }
+let tooltipId = 0;
+function tooltip(label: string, text: string) {
+  const id = `help-tooltip-${++tooltipId}`;
+  const trigger = button('?', () => {}, false, 'help-trigger');
+  trigger.setAttribute('aria-label', label); trigger.setAttribute('aria-describedby', id);
+  const help = el('span', { class: 'help' }, trigger, el('span', { id, class: 'help-tooltip', role: 'tooltip' }, text));
+  help.onmouseenter = () => help.classList.remove('dismissed');
+  trigger.onfocus = () => help.classList.remove('dismissed');
+  trigger.onkeydown = event => { if (event.key === 'Escape') { help.classList.add('dismissed'); trigger.blur(); event.stopPropagation(); } };
+  return help;
+}
 function note(message: string, error = false) { status = message; statusError = error; render(); }
 function fail(error: unknown) { note(error instanceof Error ? error.message : String(error), true); }
 function draft(): DraftEvent | undefined { return state.drafts.find(d => d.id === selectedId && d.state === 'pending'); }
 function locked() { return working || state.drafts.some(d => d.state === 'pending' && d.applyRecord); }
+function focusTitle() {
+  const title = root.querySelector<HTMLInputElement>('[data-focus-key="Title"]');
+  window.focus();
+  title?.focus(); title?.setSelectionRange(title.value.length, title.value.length);
+}
+function createDraft() {
+  if (!connected || locked()) return;
+  const event = newDraft(state); state.drafts.push(event); selectedId = event.id; drawing = false; changed(); focusTitle();
+}
+function selectDraft(id: string, focus = false) {
+  selectedId = id; drawing = false; render(); sendOverlay(); if (focus) focusTitle();
+}
+function canDraw() { return Boolean(draft() && view.supported && (state.timezoneConfirmed || view.timeZone)); }
+function toggleDrawing(focusCalendar = false) {
+  if (!connected || locked()) return;
+  if (!drawing && !canDraw()) {
+    note(!draft() ? 'Create or select a pending draft before drawing.' : !view.supported ? view.reason || 'Open a Calendar day or week view.' : 'Confirm the Calendar timezone in settings before drawing.', true);
+    return;
+  }
+  drawing = !drawing;
+  if (drawing && focusCalendar) (document.activeElement as HTMLElement | null)?.blur();
+  render(); sendOverlay(drawing && focusCalendar);
+}
+function performShortcut(action: ShortcutAction) {
+  if (!connected || locked()) return;
+  if (action === 'new-draft') createDraft();
+  else if (action === 'toggle-drawing') toggleDrawing(true);
+  else {
+    const pending = state.drafts.filter(d => d.state === 'pending'); if (!pending.length) return;
+    const index = pending.findIndex(d => d.id === selectedId), direction = action === 'previous-draft' ? -1 : 1;
+    const next = index < 0 ? 0 : (index + direction + pending.length) % pending.length;
+    selectDraft(pending[next].id, true);
+  }
+}
 async function persist() { if (account) await store.save(account, state); }
 function changed(redraw = true) {
   state.revision++; state.proposal = undefined;
@@ -49,7 +95,8 @@ function field(label: string, value: string, set: (value: string) => void, optio
   input.value = value; input.disabled = options.disabled ?? locked();
   if (input.type === 'number') { input.min = '1'; input.step = '1'; }
   input.oninput = () => { set(input.value); changed(false); };
-  input.onchange = () => render();
+  // Let native Tab focus the next field before replacing the form controls.
+  input.onchange = () => requestAnimationFrame(render);
   return el('label', { class: 'field' }, el('span', {}, label), input);
 }
 function check(label: string, checked: boolean, set: (value: boolean) => void, disabled = locked()) {
@@ -67,18 +114,19 @@ function section(title: string, ...children: Child[]) { return el('section', {},
 function resourceChecks(ids: string[], set: (ids: string[]) => void) {
   return el('div', { class: 'resources' }, ...state.resources.map(r => check(r.name, ids.includes(r.id), value => set(value ? [...ids, r.id] : ids.filter(id => id !== r.id)))));
 }
-function sendOverlay() {
+function sendOverlay(focusCalendar = false) {
   const current = draft();
   const message: OverlayState = { type: 'overlay', draftId: current?.id, drawing: drawing && !locked(), timeZone: state.timeZone,
     timezoneConfirmed: state.timezoneConfirmed, windows: current?.windows ?? [],
-    placements: state.proposal?.result.placements.filter(p => state.drafts.some(d => d.id === p.draftId && d.state === 'pending')) ?? [] };
+    placements: state.proposal?.result.placements.filter(p => state.drafts.some(d => d.id === p.draftId && d.state === 'pending')) ?? [], focusCalendar };
   try { port?.postMessage(message); } catch { port = undefined; }
 }
-async function attachTab(id?: number) {
+async function attachTab(id?: number, force = false) {
   const generation = ++tabGeneration;
-  port?.disconnect(); port = undefined; drawing = false;
   const tab = id ? await chrome.tabs.get(id) : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
   if (generation !== tabGeneration) return;
+  if (!force && tab?.id === tabId && port && tab.url?.startsWith('https://calendar.google.com/')) return;
+  port?.disconnect(); port = undefined; drawing = false;
   tabId = tab?.id;
   if (!tab?.id || !tab.url?.startsWith('https://calendar.google.com/')) { view = { supported: false, dates: [], reason: 'Open Google Calendar to draw windows.' }; render(); return; }
   const connection = chrome.tabs.connect(tab.id, { name: 'calendar-panel' }); port = connection;
@@ -90,6 +138,7 @@ async function attachTab(id?: number) {
       if (view.timeZone && validZone(view.timeZone) && view.timeZone !== state.timeZone) { state.timeZone = view.timeZone; state.timezoneConfirmed = true; changed(false); }
       render(); void refreshAgenda().catch(fail);
     } else if (message.type === 'drawing-ended') { drawing = false; render(); }
+    else if (message.type === 'shortcut') performShortcut(message.action);
     else if (!locked()) {
       const event = state.drafts.find(d => d.id === message.draftId && d.state === 'pending');
       if (!event) return;
@@ -188,13 +237,16 @@ function renderEditor(current: DraftEvent) {
       current.calendarId = value; state.lastCalendarId = value;
       const policy = state.policies.find(p => p.calendarId === value); if (policy) policy.enabled = true;
     }),
-    check('Runs in the background', !current.resourceIds.includes(ATTENTION), value => { current.resourceIds = value ? current.resourceIds.filter(id => id !== ATTENTION) : [...current.resourceIds, ATTENTION]; }),
+    el('div', { class: 'help-row' },
+      check('Runs in the background', !current.resourceIds.includes(ATTENTION), value => { current.resourceIds = value ? current.resourceIds.filter(id => id !== ATTENTION) : [...current.resourceIds, ATTENTION]; }),
+      tooltip('About running in the background', 'Checking this removes “My attention” from the event, so it can run while you do something else. Other required resources still prevent overlaps.')),
     el('p', { class: 'muted' }, 'Required resources · any shared resource prevents overlap'), resourceChecks(current.resourceIds, ids => { current.resourceIds = ids; }));
-  const canDraw = view.supported && (state.timezoneConfirmed || Boolean(view.timeZone));
-  editor.append(button(drawing ? 'Finish drawing' : 'Draw availability on Calendar', () => { drawing = !drawing; render(); sendOverlay(); }, locked() || !canDraw, 'primary'));
-  if (!canDraw) {
+  const drawingButton = button(drawing ? 'Finish drawing' : 'Draw availability on Calendar', () => toggleDrawing(), locked() || !canDraw(), 'primary');
+  drawingButton.title = 'Toggle drawing · Alt/Option+Shift+D'; drawingButton.setAttribute('aria-keyshortcuts', 'Alt+Shift+D');
+  editor.append(drawingButton);
+  if (!canDraw()) {
     editor.append(el('p', { class: 'muted' }, view.supported ? 'Confirm the Calendar timezone in settings before drawing.' : view.reason));
-    if (!view.supported) editor.append(button('Recheck Calendar view', () => attachTab(tabId), locked()));
+    if (!view.supported) editor.append(button('Recheck Calendar view', () => attachTab(tabId, true), locked()));
   }
   const windows = el('div', { class: 'window-list' });
   current.windows.forEach((w, index) => windows.append(el('div', { class: 'row' }, el('span', {}, `${formatTime(w.start, state.timeZone)} → ${formatTime(w.end, state.timeZone)}`), button('Remove', () => { current.windows.splice(index, 1); changed(); }, locked()))));
@@ -240,6 +292,8 @@ function renderSettings() {
   const zone = document.createElement('input'); zone.value = state.timeZone; zone.setAttribute('aria-label', 'Google Calendar timezone'); zone.dataset.focusKey = 'zone'; zone.disabled = locked();
   details.append(el('p', { class: 'muted' }, 'Match Google Calendar’s displayed timezone. Confirm once if the page does not expose it.'),
     el('div', { class: 'row' }, zone, button('Confirm timezone', () => { if (!validZone(zone.value)) throw new Error('Enter an IANA timezone, for example America/Chicago.'); state.timeZone = zone.value; state.timezoneConfirmed = true; changed(); }, locked())));
+  details.append(el('h3', { class: 'help-row' }, 'Resources',
+    tooltip('About scheduling resources', 'Resources are things an event needs, like your attention or a washing machine. Events that share a resource cannot overlap, and an event can need several resources.')));
   const name = document.createElement('input'); name.placeholder = 'Resource name'; name.setAttribute('aria-label', 'Resource name'); name.disabled = locked();
   details.append(el('div', { class: 'row' }, name, button('Add resource', () => { if (!name.value.trim()) throw new Error('Name the resource.'); state.resources.push({ id: crypto.randomUUID(), name: name.value.trim() }); changed(); }, locked())));
   for (const resource of state.resources.filter(r => r.id !== ATTENTION)) details.append(el('div', { class: 'row' }, el('span', {}, resource.name), button('Remove resource', () => {
@@ -267,9 +321,12 @@ function render() {
   root.append(connection, el('p', { class: statusError ? 'status error' : 'status', role: statusError ? 'alert' : 'status' }, status));
   if (!account) { root.append(el('p', { class: 'muted' }, 'Your drafts and settings stay on this browser. Calendar reads and writes use your connected Google account.')); return; }
   root.append(renderSettings());
-  const list = section('Pending drafts', button('+ Flexible event', () => { const event = newDraft(state); state.drafts.push(event); selectedId = event.id; drawing = false; changed(); }, !connected || locked(), 'primary'));
+  const newButton = button('+ Flexible event', createDraft, !connected || locked(), 'primary');
+  newButton.title = 'New draft · Alt/Option+Shift+N'; newButton.setAttribute('aria-keyshortcuts', 'Alt+Shift+N');
+  const list = section('Pending drafts', newButton,
+    el('p', { class: 'muted' }, 'New: Alt/Option+Shift+N · Draw: Alt/Option+Shift+D · Switch drafts: Alt/Option+Shift+↑/↓'));
   for (const event of state.drafts.filter(d => d.state === 'pending')) list.append(el('div', { class: event.id === selectedId ? 'draft-row selected' : 'draft-row' },
-    check('Include', event.selected, value => { event.selected = value; }), button(`${event.title || 'Untitled draft'} · ${event.durationMinutes} min`, () => { selectedId = event.id; drawing = false; render(); sendOverlay(); }),
+    check('Include', event.selected, value => { event.selected = value; }), button(`${event.title || 'Untitled draft'} · ${event.durationMinutes} min`, () => selectDraft(event.id)),
     event.applyRecord ? el('div', {}, el('small', {}, 'Write recovery pending · Retry Apply'), button('Inspect previous insertion', () => resolveWrite(event), working)) : null));
   root.append(list);
   const current = draft(); if (current) root.append(renderEditor(current));
@@ -292,8 +349,17 @@ function render() {
     next?.focus(); if (next && selection?.[0] != null && selection[1] != null) next.setSelectionRange(selection[0], selection[1]);
   }
 }
+document.addEventListener('keydown', event => {
+  const action = shortcutAction(event);
+  if (action) {
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (!event.repeat) { try { performShortcut(action); } catch (error) { fail(error); } }
+  } else if (event.key === 'Escape' && drawing && !event.isComposing) {
+    event.preventDefault(); drawing = false; render(); sendOverlay();
+  }
+});
 chrome.tabs.onActivated.addListener(info => { void attachTab(info.tabId).catch(fail); });
-chrome.tabs.onUpdated.addListener((id, change) => { if (id === tabId && change.status === 'complete') void attachTab(id).catch(fail); });
+chrome.tabs.onUpdated.addListener((id, change) => { if (id === tabId && change.status === 'complete') void attachTab(id, true).catch(fail); });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !account || working) return;
   const next = changes[`account:${account}`]?.newValue as AccountState | undefined;
